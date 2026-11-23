@@ -223,6 +223,11 @@
   .backup-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
   .backup-box input[type="file"] { font-size: 12px; color: var(--ink-soft); max-width: 100%; }
   .import-panel { padding: 12px; background: var(--bg-card); border: 1px solid var(--line-soft); border-radius: 12px; }
+  .sync-badge { margin: -12px 0 18px; text-align: center; font-size: 11px; color: var(--ink-faint); }
+  .sync-form { display: flex; flex-direction: column; gap: 8px; max-width: 360px; }
+  .sync-form input { padding: 11px 13px; background: var(--bg-card); border: 1px solid var(--line); border-radius: 10px; font-size: 14px; color: var(--ink); outline: none; }
+  .sync-form input:focus { border-color: var(--leaf-soft); }
+  .sync-message { color: var(--earth); }
   .notice { margin-bottom: 18px; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(199,95,104,0.35); background: var(--bg-card); font-size: 12px; color: var(--rose); line-height: 1.45; }
 
   @media (max-width: 480px) {
@@ -262,6 +267,7 @@
     <div class="label" id="dateLabel">Heute</div>
     <button id="nextDay" title="Nächster Tag">›</button>
   </div>
+  <div class="sync-badge" id="syncBadge" style="display:none;"></div>
 
   <div class="notice" id="storageWarning" style="display:none;">Dieser Browser lässt das Speichern gerade nicht zu. Deine Einträge bleiben nur, solange die Seite offen ist — lade am besten unten eine Sicherung herunter.</div>
 
@@ -474,6 +480,11 @@
     <p id="targetsNote" style="margin-top:14px; font-size:12px; color:var(--ink-faint); font-style:italic; line-height:1.5;"></p>
   </details>
 
+  <details class="settings" id="syncDetails">
+    <summary>Mac &amp; Handy abgleichen</summary>
+    <div class="backup-box" id="syncBox"></div>
+  </details>
+
   <details class="settings" id="backupDetails">
     <summary>Daten sichern &amp; übertragen</summary>
     <div class="backup-box">
@@ -502,7 +513,8 @@
   </footer>
 </div>
 
-<script src="./foods.js?v=4"></script>
-<script src="./app.js?v=4"></script>
+<script src="./foods.js?v=5"></script>
+<script src="./app.js?v=5"></script>
+<script src="./sync.js?v=5"></script>
 </body>
 </html>

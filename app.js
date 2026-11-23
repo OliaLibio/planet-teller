@@ -29,7 +29,8 @@ function readStoredValue(key) {
   return memoryStore.has(key) ? memoryStore.get(key) : null;
 }
 
-function writeStoredValue(key, value) {
+// silent: true = Änderung kommt vom Abgleich selbst und muss nicht wieder hochgeladen werden.
+function writeStoredValue(key, value, silent) {
   memoryStore.set(key, value);
   try {
     localStorage.setItem(key, value);
@@ -38,6 +39,7 @@ function writeStoredValue(key, value) {
     console.warn("Speichern im Browser ist gerade nicht verfügbar.", e);
     showStorageWarning();
   }
+  if (!silent && window.PlanetSync) window.PlanetSync.markDirty(key);
 }
 
 function removeStoredValue(key) {
@@ -265,15 +267,67 @@ function normalizeEntry(entry) {
   return out;
 }
 
+// ---------- Eintrags-Kennungen (für den Abgleich zwischen Geräten) ----------
+// Jeder Eintrag bekommt eine feste Kennung „id“ und einen Zeitpunkt „t“.
+// Alte Einträge ohne Kennung bekommen eine, die sich aus Tag, Position und Inhalt ergibt –
+// so erhält derselbe alte Eintrag auf Mac und Handy dieselbe Kennung und wird nicht doppelt gezählt.
+const TOMBSTONE_KEY = "mein-tag-deleted"; // Kennungen gelöschter Einträge: {id: Zeitpunkt}
+
+function hashText(text) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(36);
+}
+
+function newEntryId() {
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID().replace(/-/g, "").slice(0, 16);
+  return (Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
+}
+
+function ensureEntryIds(storageKey, list) {
+  return list.map((e, i) => {
+    if (!e || typeof e !== "object" || e.id) return e;
+    return {...e, id: "a" + hashText(`${storageKey}|${i}|${e.n}|${e.u}|${e.k}|${e.p}|${e.grams || ""}`), t: e.t || 0};
+  });
+}
+
+function readTombstones() {
+  const stored = readJson(TOMBSTONE_KEY, {});
+  return stored && typeof stored === "object" && !Array.isArray(stored) ? stored : {};
+}
+
+function rememberDeleted(entry) {
+  if (!entry || !entry.id) return;
+  const tombs = readTombstones();
+  tombs[entry.id] = Date.now();
+  writeStoredValue(TOMBSTONE_KEY, JSON.stringify(tombs));
+}
+
 function readDayEntries(d) {
-  const raw = readJson(dateKey(d), []);
-  return Array.isArray(raw) ? raw.map(normalizeEntry).filter(Boolean) : [];
+  const key = dateKey(d);
+  const raw = readJson(key, []);
+  return Array.isArray(raw) ? ensureEntryIds(key, raw).map(normalizeEntry).filter(Boolean) : [];
 }
 
 async function loadDay(d) { return readDayEntries(d); }
 
 async function saveDay(d, list) {
-  writeStoredValue(dateKey(d), JSON.stringify(list.map(e => ({...e, v: ENTRY_VERSION}))));
+  const now = Date.now();
+  list.forEach(e => { // direkt am Eintrag setzen, damit ein späteres Löschen die Kennung kennt
+    if (!e.id) e.id = newEntryId();
+    if (e.t === undefined) e.t = now;
+    e.v = ENTRY_VERSION;
+  });
+  writeStoredValue(dateKey(d), JSON.stringify(list));
+}
+
+// Wird vom Abgleich aufgerufen, wenn neue Daten von einem anderen Gerät angekommen sind.
+async function reloadFromStorage() {
+  await loadState();
+  renderAll();
 }
 
 async function loadSettings() { return {...DEFAULT_TARGETS, ...readJson(SETTINGS_KEY, {})}; }
@@ -1589,7 +1643,8 @@ function setupListeners() {
   document.getElementById("entries").addEventListener("click", async e => {
     const button = e.target.closest(".del");
     if (!button) return;
-    entries.splice(parseInt(button.dataset.i), 1);
+    const [removed] = entries.splice(parseInt(button.dataset.i), 1);
+    rememberDeleted(removed); // damit der Eintrag auch auf dem anderen Gerät verschwindet
     await saveDay(currentDate, entries);
     render();
   });
