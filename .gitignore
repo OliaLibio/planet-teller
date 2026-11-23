@@ -1,0 +1,9 @@
+# Nur die App selbst ist öffentlich. Notizen, Übergabe und Sicherungen bleiben lokal.
+CLAUDE.md
+UEBERGABE_CLAUDE_CODE.md
+*.zip
+data/
+.claude/
+__pycache__/
+planet-teller-sicherung-*.json
+.DS_Store

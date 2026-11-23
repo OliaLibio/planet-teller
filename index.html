@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#2f6f4f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Planet Teller">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>Ich kümmere mich um diesen Planet</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="./icon-180.png">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #eef3ee;
+    --bg-card: #fffdf7;
+    --ink: #22302b;
+    --ink-soft: #59675f;
+    --ink-faint: #8a968e;
+    --leaf: #2f6f4f;
+    --leaf-soft: #6f9c74;
+    --earth: #c26448;
+    --grain: #5f8dbd;
+    --rose: #c75f68;
+    --line: #cfd9d0;
+    --line-soft: #e2e9df;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); color: var(--ink); font-family: 'Inter', sans-serif; min-height: 100vh; }
+  body::before { content: ''; position: fixed; inset: 0; background: linear-gradient(180deg, #f6faf5 0%, #eef3ee 46%, #e7f0f2 100%); pointer-events: none; z-index: 0; }
+  .container { max-width: 720px; margin: 0 auto; padding: 24px 18px 80px; position: relative; z-index: 1; }
+
+  header { margin-bottom: 28px; padding-top: 8px; }
+  .date { font-family: 'Fraunces', serif; font-size: 13px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 6px; }
+  h1 { font-family: 'Fraunces', serif; font-weight: 400; font-size: 36px; line-height: 1.1; letter-spacing: -0.01em; color: var(--ink); }
+  h1 em { font-style: italic; color: var(--leaf); }
+  .sub { font-family: 'Fraunces', serif; font-style: italic; font-size: 15px; color: var(--ink-soft); margin-top: 8px; }
+
+  /* Date nav */
+  .datenav { display: flex; align-items: center; gap: 10px; margin-bottom: 22px; padding: 10px 14px; background: var(--bg-card); border: 1px solid var(--line-soft); border-radius: 999px; }
+  .datenav button { background: none; border: none; font-size: 18px; color: var(--ink-soft); cursor: pointer; padding: 4px 10px; border-radius: 999px; transition: all 0.2s; }
+  .datenav button:hover { background: var(--line-soft); color: var(--ink); }
+  .datenav .label { flex: 1; text-align: center; font-family: 'Fraunces', serif; font-size: 14px; color: var(--ink); }
+
+  /* Rings */
+  .rings { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 28px; }
+  .ring-card { background: var(--bg-card); border: 1px solid var(--line-soft); border-radius: 18px; padding: 18px 14px; text-align: center; position: relative; overflow: hidden; }
+  .ring-card .label { font-family: 'Fraunces', serif; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 12px; }
+  .ring-svg { width: 90px; height: 90px; margin: 0 auto 10px; display: block; }
+  .ring-svg circle { fill: none; stroke-width: 7; transform: rotate(-90deg); transform-origin: center; transition: stroke-dashoffset 0.6s ease; }
+  .ring-svg .track { stroke: var(--line-soft); }
+  .ring-svg .fill { stroke-linecap: round; }
+  .ring-card.kcal .fill { stroke: var(--earth); }
+  .ring-card.prot .fill { stroke: var(--leaf); }
+  .ring-card.co2 .fill { stroke: var(--grain); }
+  .ring-card .value { font-family: 'Fraunces', serif; font-size: 22px; color: var(--ink); }
+  .ring-card .of { font-size: 11px; color: var(--ink-faint); display: block; margin-top: 2px; }
+  .ring-card .unit { font-size: 11px; color: var(--ink-soft); margin-top: 4px; letter-spacing: 0.1em; text-transform: uppercase; }
+
+  /* Section */
+  .section { background: var(--bg-card); border: 1px solid var(--line-soft); border-radius: 18px; padding: 22px 20px; margin-bottom: 18px; }
+  .section h2 { font-family: 'Fraunces', serif; font-weight: 400; font-size: 22px; margin-bottom: 14px; }
+  .section h2 .accent { color: var(--leaf); font-style: italic; }
+  .section .lead { font-size: 13px; color: var(--ink-soft); line-height: 1.55; margin: -4px 0 16px; }
+
+  /* Profile and weekly ration */
+  .profile-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+  .profile-grid .half { grid-column: span 2; }
+  .profile-grid .wide { grid-column: span 4; }
+  .profile-grid label { display: flex; flex-direction: column; gap: 5px; font-size: 10px; color: var(--ink-faint); letter-spacing: 0.06em; text-transform: uppercase; }
+  .profile-grid input, .profile-grid select, .profile-grid textarea {
+    width: 100%; padding: 10px 11px; background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+    font-family: 'Inter', sans-serif; font-size: 13px; color: var(--ink); outline: none;
+  }
+  .profile-grid textarea { min-height: 92px; resize: vertical; text-transform: none; letter-spacing: 0; line-height: 1.35; }
+  .profile-grid input:focus, .profile-grid select:focus, .profile-grid textarea:focus { border-color: var(--leaf-soft); }
+  .profile-result { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 14px 0; }
+  .profile-result .result-item { background: var(--bg); border: 1px solid var(--line-soft); border-radius: 12px; padding: 12px; }
+  .profile-result .result-value { font-family: 'Fraunces', serif; font-size: 22px; color: var(--leaf); line-height: 1; }
+  .profile-result .result-label { margin-top: 5px; font-size: 10px; color: var(--ink-faint); letter-spacing: 0.08em; text-transform: uppercase; }
+  .calc-note { min-height: 20px; font-size: 12px; color: var(--ink-soft); line-height: 1.45; margin-top: 10px; }
+  .pref-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 12px 0 16px; }
+  .pref-chip {
+    border: 1px solid var(--line); background: var(--bg); color: var(--ink-soft); border-radius: 999px; padding: 9px 10px;
+    font-size: 12px; cursor: pointer; transition: all 0.2s; min-height: 38px;
+  }
+  .pref-chip.active { background: rgba(74,107,58,0.1); border-color: var(--leaf-soft); color: var(--leaf); }
+  .weekly-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .ration-card { background: var(--bg); border: 1px solid var(--line-soft); border-radius: 12px; padding: 13px 14px; }
+  .ration-card .r-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+  .ration-card .r-name { font-size: 13px; color: var(--ink); font-weight: 500; }
+  .ration-card .r-amount { font-family: 'Fraunces', serif; color: var(--leaf); font-size: 18px; white-space: nowrap; }
+  .ration-card .r-note { font-size: 11px; color: var(--ink-faint); line-height: 1.35; }
+  .bar { height: 6px; background: var(--line-soft); border-radius: 999px; overflow: hidden; margin: 9px 0 7px; }
+  .bar > span { display: block; height: 100%; width: 0%; background: var(--leaf-soft); border-radius: inherit; transition: width 0.35s; }
+  .ration-card.high .bar > span { background: var(--rose); }
+  .analysis-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+  .analysis-range { font-size: 12px; color: var(--ink-faint); }
+  .analysis-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .analysis-card { background: var(--bg); border: 1px solid var(--line-soft); border-radius: 12px; padding: 14px; min-height: 124px; }
+  .analysis-card strong { display: block; font-family: 'Fraunces', serif; font-size: 17px; font-weight: 500; color: var(--ink); margin-bottom: 7px; }
+  .analysis-card p { font-size: 12px; color: var(--ink-soft); line-height: 1.48; }
+  .analysis-card .idea-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .analysis-card .idea-list span { border: 1px solid var(--line); border-radius: 999px; padding: 6px 8px; font-size: 11px; color: var(--leaf); background: var(--bg-card); }
+  .analysis-card.warning { border-color: rgba(199,95,104,0.35); }
+  .analysis-card.good { border-color: rgba(47,111,79,0.35); }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 6px; margin-bottom: 16px; padding: 4px; background: var(--bg); border-radius: 12px; }
+  .tab { flex: 1; padding: 8px 12px; background: none; border: none; font-family: 'Inter', sans-serif; font-size: 13px; color: var(--ink-soft); border-radius: 9px; cursor: pointer; transition: all 0.2s; }
+  .tab.active { background: var(--bg-card); color: var(--ink); box-shadow: 0 1px 3px rgba(42,37,32,0.06); }
+
+  /* Search box */
+  .search-row { display: flex; gap: 8px; margin-bottom: 12px; }
+  .search-row input[type="text"] { flex: 1; padding: 12px 14px; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; font-family: 'Inter', sans-serif; font-size: 14px; color: var(--ink); outline: none; transition: border-color 0.2s; }
+  .search-row input[type="text"]:focus { border-color: var(--leaf-soft); }
+
+  /* Food list */
+  .food-list { max-height: 280px; overflow-y: auto; border: 1px solid var(--line-soft); border-radius: 12px; background: var(--bg); }
+  .food-item { display: flex; justify-content: space-between; align-items: center; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); cursor: pointer; transition: background 0.15s; }
+  .food-item:last-child { border-bottom: none; }
+  .food-item:hover { background: var(--line-soft); }
+  .food-item .name { font-size: 14px; color: var(--ink); }
+  .food-item .meta { font-size: 11px; color: var(--ink-faint); margin-top: 2px; }
+  .food-item .add { color: var(--leaf); font-size: 18px; font-weight: 300; }
+  .food-source { display: inline-block; margin-left: 6px; padding: 2px 6px; border-radius: 999px; background: var(--line-soft); color: var(--ink-soft); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; }
+  .food-status { margin-top: 8px; font-size: 12px; color: var(--ink-faint); min-height: 18px; }
+  .portion-panel { display: none; margin: 0 0 12px; padding: 13px; background: var(--bg); border: 1px solid var(--line-soft); border-radius: 12px; }
+  .portion-panel.active { display: block; }
+  .portion-panel .portion-title { font-size: 13px; color: var(--ink); font-weight: 600; margin-bottom: 4px; }
+  .portion-panel .portion-meta, .free-preview { font-size: 12px; color: var(--ink-soft); line-height: 1.45; }
+  .portion-row { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+  .portion-row input { width: 120px; padding: 11px 12px; background: var(--bg-card); border: 1px solid var(--line); border-radius: 10px; font-size: 14px; color: var(--ink); outline: none; }
+  .portion-row span { font-size: 12px; color: var(--ink-faint); }
+
+  /* Free input */
+  .free-input { display: flex; flex-direction: column; gap: 10px; }
+  .free-input .row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; width: 100%; }
+  .free-input input { min-width: 0; width: 100%; padding: 11px 13px; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; font-size: 14px; outline: none; }
+  .free-input input:focus { border-color: var(--leaf-soft); }
+  .free-input input.short { flex: 0 0 90px; }
+  .free-input .hint { font-size: 12px; color: var(--ink-faint); font-style: italic; }
+  .photo-box { display: grid; grid-template-columns: 110px 1fr; gap: 14px; align-items: center; }
+  .photo-preview { width: 110px; aspect-ratio: 1; border-radius: 14px; background: var(--bg); border: 1px dashed var(--line); display: grid; place-items: center; overflow: hidden; color: var(--ink-faint); font-family: 'Fraunces', serif; font-style: italic; font-size: 12px; text-align: center; padding: 10px; }
+  .photo-preview img { width: 100%; height: 100%; object-fit: cover; }
+  .photo-actions { display: flex; flex-direction: column; gap: 10px; }
+  .photo-actions input[type="file"] { font-size: 12px; color: var(--ink-soft); }
+  .guess-row { display: flex; gap: 8px; }
+  .guess-row select, .guess-row input { padding: 11px 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; font-size: 13px; outline: none; min-width: 0; }
+  .guess-row select { flex: 1; }
+  .guess-row input { width: 82px; }
+  .btn { padding: 11px 18px; background: var(--leaf); color: #faf7f0; border: none; border-radius: 10px; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500; letter-spacing: 0.04em; cursor: pointer; transition: all 0.2s; }
+  .btn:hover { background: var(--ink); }
+  .btn.ghost { background: none; color: var(--ink-soft); border: 1px solid var(--line); }
+  .btn.ghost:hover { background: var(--line-soft); color: var(--ink); }
+
+  /* Today's entries */
+  .entries { display: flex; flex-direction: column; gap: 8px; }
+  .entries.empty { padding: 24px 0; text-align: center; }
+  .entries.empty .e-empty { font-family: 'Fraunces', serif; font-style: italic; color: var(--ink-faint); font-size: 14px; }
+  .entry { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; background: var(--bg); border-radius: 12px; border: 1px solid var(--line-soft); }
+  .entry .e-name { font-size: 14px; color: var(--ink); }
+  .entry .e-meta { font-size: 11px; color: var(--ink-faint); margin-top: 3px; letter-spacing: 0.04em; }
+  .entry .e-vals { display: flex; gap: 14px; align-items: center; }
+  .entry .e-val { font-family: 'Fraunces', serif; font-size: 13px; color: var(--ink-soft); }
+  .entry .e-val span { color: var(--ink-faint); font-size: 10px; margin-left: 2px; }
+  .entry .del { background: none; border: none; color: var(--ink-faint); font-size: 16px; cursor: pointer; padding: 4px 8px; border-radius: 6px; transition: all 0.2s; }
+  .entry .del:hover { background: var(--rose); color: white; }
+
+  /* Summary */
+  .summary { margin-top: 12px; padding: 14px; background: var(--bg); border-radius: 12px; border-left: 3px solid var(--leaf-soft); font-family: 'Fraunces', serif; font-size: 14px; color: var(--ink-soft); font-style: italic; line-height: 1.5; }
+  .balance-panel { margin-top: 12px; padding: 14px; background: var(--bg); border: 1px solid var(--line-soft); border-radius: 12px; }
+  .balance-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+  .balance-title { font-family: 'Fraunces', serif; font-size: 17px; color: var(--ink); }
+  .balance-rest { font-size: 12px; color: var(--ink-soft); line-height: 1.45; }
+  .suggestions { display: grid; grid-template-columns: 1fr; gap: 10px; }
+  .suggestion-card { background: var(--bg-card); border: 1px solid var(--line-soft); border-radius: 12px; padding: 13px; }
+  .suggestion-card strong { display: block; font-size: 14px; color: var(--ink); margin-bottom: 5px; }
+  .suggestion-card p { font-size: 12px; color: var(--ink-soft); line-height: 1.45; margin-bottom: 10px; }
+  .suggestion-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .suggestion-values { font-size: 11px; color: var(--ink-faint); }
+  .suggestion-card .btn { padding: 8px 11px; white-space: nowrap; }
+
+  /* Settings */
+  details.settings { margin-top: 18px; }
+  details.settings summary { font-family: 'Fraunces', serif; font-size: 13px; color: var(--ink-faint); cursor: pointer; padding: 8px 0; letter-spacing: 0.1em; text-transform: uppercase; list-style: none; }
+  details.settings summary::-webkit-details-marker { display: none; }
+  details.settings summary::before { content: '+ '; }
+  details.settings[open] summary::before { content: '− '; }
+  .targets { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 12px; }
+  .targets label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--ink-faint); letter-spacing: 0.06em; text-transform: uppercase; }
+  .targets input { padding: 10px 12px; background: var(--bg-card); border: 1px solid var(--line); border-radius: 8px; font-size: 14px; color: var(--ink); outline: none; }
+
+  /* Footer note */
+  footer { margin-top: 32px; padding: 16px 8px; text-align: center; font-family: 'Fraunces', serif; font-style: italic; font-size: 12px; color: var(--ink-faint); }
+
+  /* Ergänzungen: Auswahl-Chips, Hinweise, Tauschideen, Entdecken, Sicherung */
+  .chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+  .chip-row .pref-chip { padding: 6px 11px; min-height: 0; font-size: 12px; }
+  .chip-row.scroll { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
+  .chip-row.scroll .pref-chip { flex: 0 0 auto; white-space: nowrap; }
+  .pref-chip.avoid.active { background: rgba(199,95,104,0.1); border-color: var(--rose); color: var(--rose); }
+  .field-title { font-size: 10px; color: var(--ink-faint); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 6px; }
+  .field-hint { font-size: 11px; color: var(--ink-faint); line-height: 1.4; margin-top: -6px; }
+  .food-item .meta.warn, .portion-warn { color: var(--rose); }
+  .portion-warn { font-size: 12px; margin-bottom: 6px; line-height: 1.4; }
+  .portion-panel .chip-row { margin: 10px 0 0; }
+  .alt-box { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line-soft); }
+  .alt-title { font-size: 12px; color: var(--ink-soft); margin-bottom: 8px; line-height: 1.4; }
+  .alt-item { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; width: 100%; text-align: left; padding: 9px 11px; margin-bottom: 6px; background: var(--bg-card); border: 1px solid var(--line-soft); border-radius: 10px; cursor: pointer; font-family: 'Inter', sans-serif; transition: border-color 0.2s; }
+  .alt-item:hover { border-color: var(--leaf-soft); }
+  .alt-name { font-size: 13px; color: var(--leaf); font-weight: 500; }
+  .alt-meta { font-size: 11px; color: var(--ink-faint); white-space: nowrap; }
+  .link-btn { background: none; border: none; padding: 0; margin-top: 10px; font-size: 12px; color: var(--ink-faint); text-decoration: underline; cursor: pointer; }
+  .fit-ok { color: var(--leaf); }
+  .fit-over { color: var(--rose); }
+  .discover-card { min-height: 0; display: flex; flex-direction: column; gap: 6px; }
+  .discover-card .discover-values { color: var(--ink-faint); font-size: 11px; }
+  .discover-card .btn { align-self: flex-start; margin-top: 6px; padding: 8px 12px; }
+  .backup-box { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; font-size: 12px; color: var(--ink-soft); line-height: 1.5; }
+  .backup-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .backup-box input[type="file"] { font-size: 12px; color: var(--ink-soft); max-width: 100%; }
+  .import-panel { padding: 12px; background: var(--bg-card); border: 1px solid var(--line-soft); border-radius: 12px; }
+  .notice { margin-bottom: 18px; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(199,95,104,0.35); background: var(--bg-card); font-size: 12px; color: var(--rose); line-height: 1.45; }
+
+  @media (max-width: 480px) {
+    .alt-item { flex-direction: column; gap: 2px; }
+    .alt-meta { white-space: normal; }
+    h1 { font-size: 28px; }
+    .ring-card { padding: 14px 8px; }
+    .ring-svg { width: 72px; height: 72px; }
+    .ring-card .value { font-size: 18px; }
+    .targets { grid-template-columns: 1fr; }
+    .profile-grid, .pref-grid, .weekly-grid { grid-template-columns: 1fr; }
+    .profile-grid .half, .profile-grid .wide { grid-column: span 1; }
+    .profile-result { grid-template-columns: 1fr; }
+    .analysis-toolbar { align-items: flex-start; flex-direction: column; }
+    .analysis-grid { grid-template-columns: 1fr; }
+    .free-input .row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .photo-box { grid-template-columns: 1fr; }
+    .photo-preview { width: 100%; max-width: 180px; }
+    .guess-row { flex-wrap: wrap; }
+    .guess-row input { flex: 1; }
+    .portion-row { flex-wrap: wrap; }
+    .portion-row input { width: 100%; }
+    .balance-head, .suggestion-foot { align-items: flex-start; flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="date" id="todayLabel">—</div>
+    <h1>Ich kümmere mich <em>um diesen Planet</em></h1>
+    <div class="sub">Was ich heute esse — für mich und für die Erde.</div>
+  </header>
+
+  <div class="datenav">
+    <button id="prevDay" title="Vorheriger Tag">‹</button>
+    <div class="label" id="dateLabel">Heute</div>
+    <button id="nextDay" title="Nächster Tag">›</button>
+  </div>
+
+  <div class="notice" id="storageWarning" style="display:none;">Dieser Browser lässt das Speichern gerade nicht zu. Deine Einträge bleiben nur, solange die Seite offen ist — lade am besten unten eine Sicherung herunter.</div>
+
+  <div class="rings">
+    <div class="ring-card kcal">
+      <div class="label">Energie</div>
+      <svg class="ring-svg" viewBox="0 0 100 100">
+        <circle class="track" cx="50" cy="50" r="42"/>
+        <circle class="fill" id="ringKcal" cx="50" cy="50" r="42" stroke-dasharray="263.89" stroke-dashoffset="263.89"/>
+      </svg>
+      <div class="value"><span id="vKcal">0</span><span class="of"> / <span id="tKcal">1800</span></span></div>
+      <div class="unit">kcal</div>
+    </div>
+    <div class="ring-card prot">
+      <div class="label">Protein</div>
+      <svg class="ring-svg" viewBox="0 0 100 100">
+        <circle class="track" cx="50" cy="50" r="42"/>
+        <circle class="fill" id="ringProt" cx="50" cy="50" r="42" stroke-dasharray="263.89" stroke-dashoffset="263.89"/>
+      </svg>
+      <div class="value"><span id="vProt">0</span><span class="of"> / <span id="tProt">60</span></span></div>
+      <div class="unit">gramm</div>
+    </div>
+    <div class="ring-card co2">
+      <div class="label">Erde</div>
+      <svg class="ring-svg" viewBox="0 0 100 100">
+        <circle class="track" cx="50" cy="50" r="42"/>
+        <circle class="fill" id="ringCO2" cx="50" cy="50" r="42" stroke-dasharray="263.89" stroke-dashoffset="263.89"/>
+      </svg>
+      <div class="value"><span id="vCO2">0</span><span class="of"> / <span id="tCO2">2500</span></span></div>
+      <div class="unit">g CO₂</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Mein Körper, mein <span class="accent">Planet-Budget</span></h2>
+    <p class="lead">Die App soll nicht weniger Essen erzwingen, sondern passend essen lernen: genug Energie, genug Eiweiß, und Lebensmittel so wählen, dass die Erde mitatmen kann.</p>
+    <div class="profile-grid">
+      <label>Alter<input type="number" id="ageIn" min="12" max="100" value="30"></label>
+      <label>Gewicht kg<input type="number" id="weightIn" min="30" max="220" value="50"></label>
+      <label>Größe cm<input type="number" id="heightIn" min="120" max="230" value="165"></label>
+      <label>Aktivität
+        <select id="activityIn">
+          <option value="1.25">ruhig</option>
+          <option value="1.45" selected>normal</option>
+          <option value="1.65">aktiv</option>
+          <option value="1.85">sehr aktiv</option>
+        </select>
+      </label>
+      <label class="half">Körper (für die Formel)
+        <select id="sexIn">
+          <option value="w" selected>weiblich</option>
+          <option value="m">männlich</option>
+        </select>
+      </label>
+      <label class="half">Ernährungsweise
+        <select id="dietIn">
+          <option value="alles" selected>ich esse alles</option>
+          <option value="pescetarisch">kein Fleisch, aber Fisch</option>
+          <option value="vegetarisch">vegetarisch</option>
+          <option value="vegan">vegan</option>
+        </select>
+      </label>
+      <label class="half">Protein-Ziel
+        <select id="proteinFactorIn">
+          <option value="0.9">sanft: 0,9 g/kg</option>
+          <option value="1.2" selected>ausgewogen: 1,2 g/kg</option>
+          <option value="1.6">sportlich: 1,6 g/kg</option>
+        </select>
+      </label>
+      <label class="half">Erde-Ziel
+        <select id="planetModeIn">
+          <option value="1800">streng: 1,8 kg CO₂/Tag</option>
+          <option value="2500" selected>balanciert: 2,5 kg CO₂/Tag</option>
+          <option value="3200">sanft starten: 3,2 kg CO₂/Tag</option>
+        </select>
+      </label>
+      <div class="wide">
+        <div class="field-title">Allergien &amp; Unverträglichkeiten — das vertrage ich nicht</div>
+        <div class="chip-row" id="avoidGrid"></div>
+        <div class="field-hint">Markierte Zutaten werden in der Liste gekennzeichnet und nicht mehr vorgeschlagen. Die Angaben sind Richtwerte — bei einer Allergie bitte immer die Packung prüfen.</div>
+      </div>
+      <label class="wide">Gesundheitliche Notiz, nur lokal gespeichert<textarea id="healthNoteIn" placeholder="z. B. Eisen beachten, ärztliche Hinweise ..."></textarea></label>
+    </div>
+    <div class="profile-result" aria-live="polite">
+      <div class="result-item">
+        <div class="result-value"><span id="calcKcal">1800</span></div>
+        <div class="result-label">kcal pro Tag</div>
+      </div>
+      <div class="result-item">
+        <div class="result-value"><span id="calcProt">60</span> g</div>
+        <div class="result-label">Protein pro Tag</div>
+      </div>
+      <div class="result-item">
+        <div class="result-value"><span id="calcCO2">2500</span> g</div>
+        <div class="result-label">CO₂-Budget pro Tag</div>
+      </div>
+    </div>
+    <button class="btn" id="calcProfile">Ziele aus Körperdaten berechnen</button>
+    <div class="calc-note" id="calcNote">Ändere deine Körperdaten und drücke den Knopf. Die Ringe oben und die Wochenration werden danach aktualisiert.</div>
+  </div>
+
+  <div class="section">
+    <h2>Meine wöchentliche <span class="accent">Ration</span></h2>
+    <p class="lead">Wähle, was du gerne isst. Daraus entsteht eine Wochenorientierung in Gramm: nicht als Verbot, sondern als ruhiger Rahmen. Fertige Gerichte, Getränke und Süßes zählen hier nicht mit.</p>
+    <div class="pref-grid" id="prefGrid"></div>
+    <div class="weekly-grid" id="weeklyPlan"></div>
+  </div>
+
+  <div class="section">
+    <h2>Analyse nach ein paar <span class="accent">Wochen</span></h2>
+    <p class="lead">Aus deinen gespeicherten Tagen erkennt die App nach festen Regeln Muster und schlägt Lebensmittel vor, die Bedarf, Vielfalt und CO₂-Budget besser zusammenbringen. Alles bleibt auf deinem Gerät.</p>
+    <div class="analysis-toolbar">
+      <div class="analysis-range" id="analysisRange">Noch keine Analyse berechnet.</div>
+      <button class="btn ghost" id="runAnalysis">Analyse aktualisieren</button>
+    </div>
+    <div class="analysis-grid" id="analysisGrid"></div>
+  </div>
+
+  <div class="section" id="inputSection">
+    <h2>Was hast du <span class="accent">gegessen</span>?</h2>
+    <div class="tabs">
+      <button class="tab active" data-tab="search">Aus Liste</button>
+      <button class="tab" data-tab="free">Frei eintragen</button>
+      <button class="tab" data-tab="photo">Foto</button>
+    </div>
+
+    <div id="tabSearch">
+      <div class="search-row">
+        <input type="text" id="search" placeholder="Suche: Apfel, Linsensuppe, Cappuccino Hafermilch …">
+      </div>
+      <div class="chip-row scroll" id="catChips"></div>
+      <div class="portion-panel" id="portionPanel">
+        <div class="portion-title" id="portionName">Lebensmittel auswählen</div>
+        <div class="portion-warn" id="portionWarn" style="display:none;"></div>
+        <div class="portion-meta" id="portionPreview">Menge eingeben, dann wird automatisch umgerechnet.</div>
+        <div class="chip-row" id="portionChips"></div>
+        <div class="portion-row">
+          <input type="number" id="portionGrams" min="1" step="1" placeholder="Menge">
+          <span id="portionUnit">Gramm gegessen</span>
+          <button class="btn" id="addPortion">Hinzufügen</button>
+        </div>
+        <div class="alt-box" id="portionAlt" style="display:none;"></div>
+        <button type="button" class="link-btn" id="forgetFood" style="display:none;">Aus meinen gemerkten Lebensmitteln entfernen</button>
+      </div>
+      <div class="food-list" id="foodList"></div>
+      <div class="food-status" id="foodStatus"></div>
+    </div>
+
+    <div id="tabFree" style="display:none;">
+      <div class="free-input">
+        <input type="text" id="fName" placeholder="Was hast du gegessen? z. B. Linsensuppe">
+        <div class="row">
+          <input type="number" id="fGrams" placeholder="Gramm" min="1" step="1">
+          <input type="number" id="fKcal" placeholder="kcal" min="0">
+          <input type="number" id="fProt" placeholder="Protein g" min="0" step="0.1">
+          <input type="number" id="fCO2" placeholder="CO₂ g" min="0">
+        </div>
+        <div class="free-preview" id="freePreview">Wenn der Name bekannt ist, rechne ich kcal, Protein und CO₂ aus der Grammzahl automatisch aus.</div>
+        <div class="hint">Du kannst kcal, Protein oder CO₂ auch selbst überschreiben. Leere Felder werden geschätzt.</div>
+        <button class="btn" id="addFree">Hinzufügen</button>
+      </div>
+    </div>
+
+    <div id="tabPhoto" style="display:none;">
+      <div class="photo-box">
+        <div class="photo-preview" id="photoPreview">Foto vom Teller</div>
+        <div class="photo-actions">
+          <input type="file" id="photoInput" accept="image/*">
+          <div class="hint">Das Foto bleibt auf deinem Gerät. Eine automatische Erkennung ist noch nicht eingebaut — bitte wähle Lebensmittel und Menge selbst.</div>
+          <div class="guess-row">
+            <select id="photoGuess"></select>
+            <input type="number" id="photoPortions" min="1" step="1" value="100" title="Gramm">
+            <button class="btn" id="addPhotoGuess">Bestätigen</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Heute auf meinem <span class="accent">Teller</span></h2>
+    <div class="entries" id="entries"></div>
+    <div class="summary" id="summary"></div>
+    <div class="balance-panel">
+      <div class="balance-head">
+        <div>
+          <div class="balance-title">Tagesvorschlag ausgleichen</div>
+          <div class="balance-rest" id="balanceRest">Ich schaue, was dir heute noch fehlt.</div>
+        </div>
+        <button class="btn ghost" id="balanceDay">Vorschläge berechnen</button>
+      </div>
+      <div class="suggestions" id="balanceSuggestions"></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Neues <span class="accent">entdecken</span></h2>
+    <p class="lead">Meist isst man immer wieder das Gleiche. Hier stehen jeden Tag drei Ideen, die du in den letzten Wochen nicht eingetragen hast — leicht für die Erde und passend zu deinen Angaben oben.</p>
+    <div class="analysis-grid" id="discoverGrid"></div>
+    <button class="btn ghost" id="discoverMore" style="margin-top:12px;">Andere Ideen zeigen</button>
+  </div>
+
+  <details class="settings">
+    <summary>Meine Tagesziele anpassen</summary>
+    <div class="targets">
+      <label>Kalorien<input type="number" id="tKcalIn" value="1800"></label>
+      <label>Protein g<input type="number" id="tProtIn" value="60"></label>
+      <label>CO₂ g<input type="number" id="tCO2In" value="2500"></label>
+    </div>
+    <p id="targetsNote" style="margin-top:14px; font-size:12px; color:var(--ink-faint); font-style:italic; line-height:1.5;"></p>
+  </details>
+
+  <details class="settings" id="backupDetails">
+    <summary>Daten sichern &amp; übertragen</summary>
+    <div class="backup-box">
+      <div>Dein Tagebuch liegt nur in diesem Browser. Mit einer Sicherung bekommst du alles als Datei: Tage, Profil, Ziele, Vorlieben und gemerkte Lebensmittel. Die Datei kannst du aufbewahren oder in einem anderen Browser oder auf dem Handy wieder einlesen.</div>
+      <div id="backupStatus"></div>
+      <div class="backup-row">
+        <button class="btn" id="exportData">Sicherung herunterladen</button>
+      </div>
+      <div class="backup-row">
+        <span>Sicherung einlesen:</span>
+        <input type="file" id="importFile" accept=".json,application/json">
+      </div>
+      <div class="import-panel" id="importPanel" style="display:none;">
+        <div id="importSummary" style="margin-bottom:10px;"></div>
+        <div class="backup-row">
+          <button class="btn" id="importMerge">Ergänzen (Vorhandenes bleibt)</button>
+          <button class="btn ghost" id="importReplace">Alles ersetzen</button>
+        </div>
+      </div>
+      <div id="importResult"></div>
+    </div>
+  </details>
+
+  <footer>
+    Jeden Tag eine kleine Entscheidung. Für mich, für die Erde.
+  </footer>
+</div>
+
+<script src="./foods.js?v=3"></script>
+<script src="./app.js?v=3"></script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+# Diese Dateien werden beim Hochladen zu Railway nicht mitgeschickt.
+CLAUDE.md
+UEBERGABE_CLAUDE_CODE.md
+*.zip
+*.json.bak
+planet-teller-sicherung-*.json
+data/
+.git/
+.claude/
+__pycache__/
