@@ -15,8 +15,9 @@
 // Ohne Einrichtung (leere SYNC_CONFIG) oder ohne Internet läuft die App normal weiter.
 
 const SYNC_CONFIG = {
-  url: "",   // z. B. https://abcdefgh.supabase.co
-  key: ""    // „Publishable key“ bzw. „anon public“ – darf öffentlich sein, Schutz übernimmt die Tabellen-Regel
+  url: "https://nwtxanmcrodxdowjxben.supabase.co",
+  // „Publishable key“ – darf öffentlich sein, den Schutz übernehmen die Tabellen-Regeln (Row Level Security)
+  key: "sb_publishable_bD3YINirOrERVzgYiFq-VA_hcL31piG"
 };
 const SYNC_LIB = {
   src: "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js",
