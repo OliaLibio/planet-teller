@@ -153,6 +153,7 @@ function inferGroup(name) {
   const t = normalizeSearchText(name);
   if (/hafermilch|haferdrink|sojadrink|sojamilch|mandeldrink|mandelmilch|pflanzendrink|plant-based-milk|kaffee|coffee|espresso|cappuccino|latte|\btee\b|saft|juice|wasser|water|limo|cola|\bbier|beer|\bwein|rotwein|weisswein|wine|smoothie|beverage|getraenk|drink/.test(t)) return "getraenk";
   if (/suppe|eintopf|pizza|burger|lasagne|curry|auflauf|\bbowl|\bwrap|sandwich|doener|sushi|fertiggericht|\bmeals?\b|soup/.test(t)) return "gericht";
+  if (/tofu|tempeh|seitan/.test(t)) return "huelsen"; // vor den Nüssen: „Räuchertofu Mandel-Sesam“ ist Tofu
   if (/erdnuss|peanut|mandel|almond|walnuss|walnuesse|cashew|haselnuss|haselnuesse|pistaz|pekannuss|macadamia|paranuss|\bnuss|nuesse|\bnuts?\b|chia|leinsamen|kuerbiskern|sonnenblumenkern|sesam|oel\b|margarine|tahin|nussmus/.test(t)) return "nuesse";
   if (/vegan|veggie|vegetarisch|fleischersatz|tofu|tempeh|seitan|soja|soy/.test(t)) return "huelsen";
   if (/\bei\b|\beier\b|ruehrei|spiegelei|omelett|\beggs?\b/.test(t)) return "ei";
@@ -347,7 +348,8 @@ let balanceShown = false;
 let currentSuggestions = [];
 let discoverOffset = 0;
 let pendingImport = null;
-// Die schnelle Online-Suche braucht den eigenen Server (server.py). Auf GitHub Pages gibt es ihn nicht.
+// Die echte Textsuche braucht den eigenen Server (server.py). Auf GitHub Pages gibt es ihn nicht –
+// dort sucht die App stattdessen über Kategorien und Marken (siehe requestOnlineProducts).
 const STATIC_HOSTING = location.protocol === "file:" || /\.github\.io$/.test(location.hostname);
 let proxyAvailable = !STATIC_HOSTING;
 const onlineCache = new Map();
@@ -984,7 +986,8 @@ function handleFoodSearch(value) {
     return;
   }
   status.textContent = "Treffer aus der eigenen Liste werden angezeigt. Online-Suche läuft …";
-  foodSearchTimer = setTimeout(() => fetchOnlineFoods(query, runId), 500);
+  // Ohne eigenen Server etwas länger warten: Open Food Facts begrenzt die Zahl der Suchanfragen pro Minute.
+  foodSearchTimer = setTimeout(() => fetchOnlineFoods(query, runId), STATIC_HOSTING ? 800 : 500);
 }
 
 // ---------- Online-Suche (Open Food Facts) ----------
@@ -1022,47 +1025,113 @@ function offProductToFood(product) {
   return food;
 }
 
+// Weg 1 (mit eigenem Server, z. B. lokal): echte Textsuche über /api/suche.
+// Weg 2 (ohne Server, z. B. GitHub Pages): Open Food Facts erlaubt aus dem Browser nur
+// Kategorie-Abfragen. Darum erst die passende Kategorie (oder Marke) zum Suchwort holen,
+// dann die in Deutschland bekanntesten Produkte dieser Kategorie.
+// Übertragen wird in beiden Fällen nur der Suchbegriff, nie das Tagebuch.
+const OFF_BASE = "https://world.openfoodfacts.org";
+
+async function offSuggestions(tagtype, query) {
+  const url = `${OFF_BASE}/api/v3/taxonomy_suggestions?tagtype=${tagtype}&string=${encodeURIComponent(query)}&lc=de&limit=5`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("Open Food Facts nicht erreichbar");
+  return (await res.json()).suggestions || [];
+}
+
+async function offProductsBy(param, value) {
+  const tag = String(value).toLowerCase().trim().replace(/\s+/g, "-");
+  const url = `${OFF_BASE}/api/v2/search?${param}=${encodeURIComponent(tag)}&countries_tags_en=germany` +
+    `&sort_by=unique_scans_n&page_size=15&fields=${OFF_FIELDS}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("Open Food Facts nicht erreichbar");
+  return (await res.json()).products || [];
+}
+
 async function requestOnlineProducts(query) {
   if (proxyAvailable) {
     try {
       const res = await fetch(`./api/suche?q=${encodeURIComponent(query)}`);
       if (res.status === 404 || res.status === 501) proxyAvailable = false; // einfacher Dateiserver ohne Suche
-      else if (res.ok) return (await res.json()).products || [];
-    } catch (e) { /* unten direkt versuchen */ }
+      else if (res.ok) return {products: (await res.json()).products || [], via: "text"};
+    } catch (e) { /* unten über Kategorien versuchen */ }
   }
-  const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=24&cc=de&lc=de&fields=${OFF_FIELDS}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error("Open Food Facts nicht erreichbar");
-  return (await res.json()).products || [];
+  const categories = await offSuggestions("categories", query);
+  if (categories.length) {
+    const products = await offProductsBy("categories_tags_de", categories[0]);
+    if (products.length) return {products, via: "kategorie", label: categories[0]};
+  }
+  const brands = await offSuggestions("brands", query);
+  if (brands.length) {
+    const products = await offProductsBy("brands_tags", brands[0]);
+    if (products.length) return {products, via: "marke", label: brands[0]};
+  }
+  return {products: [], via: "kategorie"};
+}
+
+// Suchergebnisse für die Dauer der Sitzung merken: spart Anfragen bei Open Food Facts
+// (dort sind nur wenige Suchen pro Minute erlaubt) und macht Wiederholungen sofort sichtbar.
+const ONLINE_CACHE_KEY = "pt-online-suche";
+
+function slimOffProduct(p) {
+  const n = p.nutriments || {};
+  const co2 = ((p.ecoscore_data || {}).agribalyse || {}).co2_total;
+  return {
+    product_name: p.product_name, product_name_de: p.product_name_de, brands: p.brands,
+    nutriments: {"energy-kcal_100g": n["energy-kcal_100g"], proteins_100g: n.proteins_100g},
+    categories_tags: (p.categories_tags || []).slice(0, 12), allergens_tags: p.allergens_tags || [],
+    serving_quantity: p.serving_quantity, ecoscore_data: {agribalyse: {co2_total: co2}}
+  };
+}
+
+function readOnlineCache(key) {
+  if (onlineCache.has(key)) return onlineCache.get(key);
+  try {
+    const stored = JSON.parse(sessionStorage.getItem(ONLINE_CACHE_KEY) || "{}");
+    if (stored[key]) onlineCache.set(key, stored[key]);
+    return stored[key] || null;
+  } catch (e) { return null; }
+}
+
+function writeOnlineCache(key, result) {
+  const slim = {...result, products: result.products.map(slimOffProduct)};
+  onlineCache.set(key, slim);
+  try {
+    const stored = JSON.parse(sessionStorage.getItem(ONLINE_CACHE_KEY) || "{}");
+    stored[key] = slim;
+    const keys = Object.keys(stored);
+    keys.slice(0, Math.max(0, keys.length - 30)).forEach(k => delete stored[k]); // höchstens 30 Suchen
+    sessionStorage.setItem(ONLINE_CACHE_KEY, JSON.stringify(stored));
+  } catch (e) { /* ohne Zwischenspeicher weiter */ }
+  return slim;
 }
 
 async function fetchOnlineFoods(query, runId) {
   const status = document.getElementById("foodStatus");
   const key = normalizeFoodName(query);
   try {
-    let products = onlineCache.get(key);
-    if (!products) {
-      products = await requestOnlineProducts(query);
-      onlineCache.set(key, products);
-    }
+    let result = readOnlineCache(key);
+    if (!result) result = writeOnlineCache(key, await requestOnlineProducts(query));
     if (runId !== foodSearchRun) return;
     const terms = searchTermsOf(query).filter(t => t.length >= 3 && !["mit", "und", "der", "die", "das"].includes(t));
-    onlineFoods = products
+    onlineFoods = result.products
       .map(offProductToFood)
       .filter(Boolean)
-      .filter(food => !terms.length || terms.some(term => termMatches(food.hay, term)))
+      // Bei Kategorie- und Markentreffern passt das Produkt schon über die Kategorie,
+      // auch wenn der Name anders lautet (z. B. „Creamy Yogurt Strawberry“ bei Erdbeerjoghurt).
+      .filter(food => result.via !== "text" || !terms.length || terms.some(term => termMatches(food.hay, term)))
       .slice(0, 15);
     renderFoodList(query);
+    const where = result.via === "kategorie" ? ` aus der Kategorie „${result.label}“`
+      : result.via === "marke" ? ` der Marke „${result.label}“` : "";
     status.textContent = onlineFoods.length
-      ? `${onlineFoods.length} Online-Treffer aus Open Food Facts ergänzt. „≈“ heißt: CO₂ ist geschätzt.`
-      : "Keine passenden Online-Treffer. Du kannst frei eintragen.";
+      ? `${onlineFoods.length} Produkte${where} aus Open Food Facts ergänzt. „≈“ heißt: CO₂ ist geschätzt.`
+      : "Keine passenden Online-Treffer. Versuche ein allgemeineres Wort (z. B. „Joghurt“) oder trage frei ein.";
   } catch (e) {
     if (runId !== foodSearchRun) return;
     onlineFoods = [];
     renderFoodList(query);
-    status.textContent = STATIC_HOSTING
-      ? "Die zusätzliche Online-Suche ist in dieser Fassung noch nicht verfügbar. Nicht gefunden? Unter „Frei eintragen“ mit eigenen Werten anlegen – dann merkt sich die App das Lebensmittel."
-      : "Online-Suche gerade nicht erreichbar. Die eigene Liste bleibt nutzbar.";
+    status.textContent = "Online-Suche gerade nicht erreichbar oder überlastet – versuche es in einer Minute noch einmal. Die eigene Liste bleibt nutzbar.";
   }
 }
 
