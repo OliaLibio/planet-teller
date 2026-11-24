@@ -1264,6 +1264,7 @@ function selectFood(food) {
     altBox.innerHTML = "";
   }
   document.getElementById("forgetFood").style.display = food.saved ? "" : "none";
+  document.getElementById("portionRecipe").innerHTML = recipeHtml(food.n);
   updatePortionPreview();
 }
 
@@ -1500,6 +1501,74 @@ async function saveDish(addPortion) {
   resetDish(`„${dish.n}“ ${replaced ? "aktualisiert" : "gespeichert"}${addPortion ? ` und 1 Portion (${dish.g} g) eingetragen` : ""}. Du findest es unter „Aus Liste“.`);
 }
 
+// ---------- Rezepte zu den vorgeschlagenen Gerichten (Daten in recipes.js) ----------
+function recipeFor(name) {
+  return (typeof RECIPES !== "undefined" && RECIPES[name]) || null;
+}
+
+function recipeItems(recipe) {
+  return recipe.zutaten
+    .map(([n, grams, label]) => ({food: foodByName(n), grams, label}))
+    .filter(item => item.food);
+}
+
+// Ein Rezept, in dem dieses Lebensmittel vorkommt und das zu Allergien/Ernährungsweise passt.
+function recipeUsing(foodName) {
+  if (typeof RECIPES === "undefined") return null;
+  // Auch ähnliche Zutaten zählen: „Pasta, gekocht“ findet Rezepte mit „Pasta (trocken)“.
+  const firstWord = name => normalizeFoodName(name).split(/[ ,(\/]/)[0];
+  const key = firstWord(foodName);
+  const hit = Object.entries(RECIPES).find(([dish, recipe]) =>
+    recipe.zutaten.some(z => z[0] === foodName || (key.length >= 4 && firstWord(z[0]) === key)) &&
+    foodConflicts({group: "gericht", flags: dishFlags(recipeItems(recipe))}).length === 0 &&
+    !freqMap[dish]);
+  return hit ? hit[0] : null;
+}
+
+function recipeHtml(name) {
+  const recipe = recipeFor(name);
+  if (!recipe) return "";
+  const items = recipeItems(recipe);
+  const t = dishTotals(items);
+  const n = recipe.portionen;
+  const conflicts = foodConflicts({group: "gericht", flags: dishFlags(items)});
+  const line = ({food, grams, label}) => {
+    const amount = `${Math.round(grams)} ${food.liquid ? "ml" : "g"}`;
+    // Steht im Rezept nur eine Menge („1 Zehe“, „1½ EL“), den Namen der Zutat ergänzen.
+    const onlyAmount = label && /^[\d½¼¾\s]+(EL|TL|Zehen?|Stück)?$/.test(label.trim());
+    const shortName = food.n.replace(/\s*\(.*\)$/, "").replace(/,.*$/, "");
+    const text = onlyAmount ? `${label} ${shortName}` : label;
+    return label ? `${escapeHtml(text)} <span class="recipe-amount">(${amount})</span>` : `${amount} ${escapeHtml(food.n)}`;
+  };
+  return `
+    <details class="recipe">
+      <summary>Rezept ansehen · ${n} Portionen · ${escapeHtml(recipe.zeit)}</summary>
+      ${recipe.art ? `<p class="recipe-note">${escapeHtml(recipe.art)}</p>` : ""}
+      <div class="recipe-head">Zutaten</div>
+      <ul class="recipe-ing">${items.map(item => `<li>${line(item)}</li>`).join("")}</ul>
+      <div class="recipe-head">So geht's</div>
+      <ol class="recipe-steps">${recipe.schritte.map(step => `<li>${escapeHtml(step)}</li>`).join("")}</ol>
+      ${recipe.tipp ? `<p class="recipe-note">Tipp: ${escapeHtml(recipe.tipp)}</p>` : ""}
+      <p class="recipe-values">1 Portion laut Rezept: ${Math.round(t.k / n)} kcal · ${(t.p / n).toFixed(0)} g Protein · ${Math.round(t.c / n)} g CO₂</p>
+      ${conflicts.length ? `<p class="recipe-warn">Hinweis: ${escapeHtml(conflictText(conflicts))}.</p>` : ""}
+      <button type="button" class="btn ghost" data-recipe-adopt="${escapeHtml(name)}">Als mein Gericht übernehmen</button>
+    </details>`;
+}
+
+// Lädt ein Rezept in „Gericht“, damit man Zutaten und Mengen an die eigene Zubereitung anpassen kann.
+function adoptRecipe(name) {
+  const recipe = recipeFor(name);
+  if (!recipe) return;
+  dishItems = recipeItems(recipe).map(({food, grams}) => ({food, grams}));
+  dishEditing = null;
+  document.getElementById("dishName").value = name.replace(/ \(ohne Reis\)$/, "");
+  document.getElementById("dishPortions").value = recipe.portionen;
+  showTab("dish");
+  document.getElementById("dishStatus").textContent =
+    "Rezept übernommen. Passe Zutaten und Mengen an deine Zubereitung an und speichere es – danach findest du es unter „Aus Liste“.";
+  document.getElementById("inputSection").scrollIntoView({behavior: "smooth", block: "start"});
+}
+
 // ---------- Foto (noch ohne automatische Erkennung) ----------
 function renderPhotoOptions() {
   const select = document.getElementById("photoGuess");
@@ -1602,6 +1671,7 @@ function renderBalanceSuggestions() {
       <strong>${escapeHtml(meal.title)}</strong>
       <p>${escapeHtml(meal.items.map(item => `${item.n} ${item.u}`).join(" · "))}</p>
       <p>${escapeHtml(meal.note)}</p>
+      ${BALANCE_HOWTO[meal.title] ? `<p class="recipe-note">So geht's: ${escapeHtml(BALANCE_HOWTO[meal.title])}</p>` : ""}
       <div class="suggestion-foot">
         <div class="suggestion-values">${Math.round(meal.k)} kcal · ${meal.p.toFixed(1)} g Protein · ${Math.round(meal.c)} g CO₂
           <span class="${meal.fits ? "fit-ok" : "fit-over"}">${meal.fits ? "· passt in dein CO₂-Budget" : `· ${meal.over} g über deinem CO₂-Rest`}</span></div>
@@ -1643,13 +1713,21 @@ function renderDiscover() {
     grid.innerHTML = '<div class="analysis-card"><strong>Alles schon probiert</strong><p>Du hast in den letzten Wochen sehr abwechslungsreich gegessen — oder deine Einschränkungen lassen gerade nichts Neues aus der Liste zu.</p></div>';
     return;
   }
-  grid.innerHTML = picks.map(f => `
+  grid.innerHTML = picks.map(f => {
+    // Für ein Gericht sein eigenes Rezept, für eine Zutat ein Rezept, in dem sie vorkommt.
+    const idea = recipeFor(f.n) ? null : recipeUsing(f.n);
+    const quick = typeof QUICK_IDEAS !== "undefined" ? QUICK_IDEAS[f.n] : "";
+    return `
     <div class="analysis-card discover-card">
       <strong>${escapeHtml(f.n)}</strong>
       <p>${escapeHtml(DISCOVER_REASONS[f.group] || "")}</p>
       <p class="discover-values">${escapeHtml(f.u)}: ${formatFoodValues(f, f.g)}</p>
-      <button type="button" class="btn ghost discover-open" data-food="${escapeHtml(f.n)}">Ansehen</button>
-    </div>`).join("");
+      ${quick ? `<p class="recipe-note">Schnelle Idee: ${escapeHtml(quick)}</p>` : ""}
+      ${idea ? `<p class="recipe-note">Rezeptidee damit: ${escapeHtml(idea)}</p>` : ""}
+      ${recipeHtml(idea || f.n)}
+      <button type="button" class="btn ghost discover-open" data-food="${escapeHtml(f.n)}">In der Liste ansehen</button>
+    </div>`;
+  }).join("");
 }
 
 function openFoodInList(food) {
@@ -1899,6 +1977,12 @@ function setupListeners() {
     await savePrefs(prefs);
     renderPrefs();
     render();
+  });
+
+  // Rezept als eigenes Gericht übernehmen (Knopf steht in mehreren Bereichen)
+  document.addEventListener("click", e => {
+    const button = e.target.closest("[data-recipe-adopt]");
+    if (button) adoptRecipe(button.dataset.recipeAdopt);
   });
 
   // Eigenes Gericht

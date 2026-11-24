@@ -243,6 +243,19 @@
   .dish-list-title { margin-top: 12px; }
   .dish-entry .e-vals { gap: 6px; }
   .dish-entry .btn { padding: 7px 10px; font-size: 12px; }
+  details.recipe { margin-top: 8px; font-size: 12px; color: var(--ink-soft); line-height: 1.5; }
+  details.recipe summary { cursor: pointer; color: var(--leaf); font-weight: 500; list-style: none; padding: 4px 0; }
+  details.recipe summary::-webkit-details-marker { display: none; }
+  details.recipe summary::before { content: '▸ '; }
+  details.recipe[open] summary::before { content: '▾ '; }
+  .recipe-head { margin: 8px 0 4px; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); }
+  .recipe-ing, .recipe-steps { padding-left: 18px; display: flex; flex-direction: column; gap: 3px; }
+  .recipe-amount { color: var(--ink-faint); }
+  .recipe-note { font-size: 12px; color: var(--ink-soft); margin-top: 6px; }
+  .recipe-values { margin-top: 8px; font-size: 11px; color: var(--ink-faint); }
+  .recipe-warn { margin-top: 4px; font-size: 12px; color: var(--rose); }
+  details.recipe .btn { margin-top: 8px; padding: 8px 12px; }
+  #portionRecipe details.recipe { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line-soft); }
   .notice { margin-bottom: 18px; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(199,95,104,0.35); background: var(--bg-card); font-size: 12px; color: var(--rose); line-height: 1.45; }
 
   @media (max-width: 480px) {
@@ -429,6 +442,7 @@
           <button class="btn" id="addPortion">Hinzufügen</button>
         </div>
         <div class="alt-box" id="portionAlt" style="display:none;"></div>
+        <div id="portionRecipe"></div>
         <button type="button" class="link-btn" id="forgetFood" style="display:none;">Aus meinen gemerkten Lebensmitteln entfernen</button>
       </div>
       <div class="food-list" id="foodList"></div>
@@ -553,8 +567,9 @@
   </footer>
 </div>
 
-<script src="./foods.js?v=7"></script>
-<script src="./app.js?v=8"></script>
+<script src="./foods.js?v=8"></script>
+<script src="./recipes.js?v=9"></script>
+<script src="./app.js?v=11"></script>
 <script src="./sync.js?v=6"></script>
 </body>
 </html>

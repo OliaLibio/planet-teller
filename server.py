@@ -23,7 +23,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-APP_FILES = {"index.html", "app.js", "foods.js", "sw.js", "manifest.webmanifest", "icon.svg", "icon-180.png", "icon-512.png", "sync.js"}
+APP_FILES = {"index.html", "app.js", "foods.js", "sw.js", "manifest.webmanifest", "icon.svg", "icon-180.png", "icon-512.png", "sync.js", "recipes.js"}
 SEARCH_URL = "https://search.openfoodfacts.org/search"
 SEARCH_FIELDS = (
     "product_name,product_name_de,brands,nutriments,categories_tags,"
