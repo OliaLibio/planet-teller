@@ -463,7 +463,10 @@
         <div class="photo-actions">
           <input type="file" id="photoInput" accept="image/*">
           <input type="text" id="photoNote" class="photo-note" maxlength="300" placeholder="Notiz (optional), z. B. „nur die Hälfte gegessen“">
-          <button class="btn" id="photoRecognize" disabled>Mit KI erkennen</button>
+          <div class="backup-row">
+            <button class="btn" id="photoRecognize" disabled>Mit KI erkennen</button>
+            <button type="button" class="btn ghost" id="photoClear" style="display:none;">Foto entfernen</button>
+          </div>
           <div class="hint" id="photoHint">Die KI schlägt Lebensmittel und Mengen vor – du prüfst und bestätigst. Dafür geht das Foto einmalig an Anthropic (Claude) und wird nicht gespeichert. Kosten: etwa 3–5 Cent pro Foto.</div>
         </div>
       </div>
@@ -635,7 +638,7 @@
 
 <script src="./foods.js?v=9"></script>
 <script src="./recipes.js?v=9"></script>
-<script src="./app.js?v=14"></script>
+<script src="./app.js?v=15"></script>
 <script src="./sync.js?v=7"></script>
 </body>
 </html>

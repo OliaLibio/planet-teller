@@ -1609,6 +1609,19 @@ function adoptRecipe(name) {
 // (nur angemeldet) → Vorschläge prüfen → bestätigen. Eingetragen wird nur, was angehakt ist.
 let photoFile = null;
 let photoSuggestions = []; // [{name, food, grams, k100, p100, co2, est, on, sicherheit, hinweis}]
+let photoBusy = false;
+
+// Alles zurücksetzen: Foto, Notiz und Vorschläge verschwinden, nichts wird eingetragen.
+function resetPhoto() {
+  photoSuggestions = [];
+  photoFile = null;
+  document.getElementById("photoInput").value = "";
+  document.getElementById("photoNote").value = "";
+  document.getElementById("photoPreview").textContent = "Foto vom Teller";
+  document.getElementById("photoResult").style.display = "none";
+  document.getElementById("photoResult").innerHTML = "";
+  updatePhotoButton();
+}
 
 function photoReady() {
   return !!(window.PlanetSync && PlanetSync.client && PlanetSync.user);
@@ -1617,7 +1630,8 @@ function photoReady() {
 function updatePhotoButton() {
   const button = document.getElementById("photoRecognize");
   const hint = document.getElementById("photoHint");
-  button.disabled = !photoFile || !photoReady();
+  button.disabled = !photoFile || !photoReady() || photoBusy;
+  document.getElementById("photoClear").style.display = photoFile && !photoBusy ? "" : "none";
   if (!photoReady()) {
     hint.textContent = "Für die KI-Erkennung bitte unten bei „Mac & Handy abgleichen“ anmelden. Bis dahin kannst du selbst aus der Liste wählen.";
   } else {
@@ -1646,8 +1660,10 @@ function shrinkPhoto(file) {
 async function recognizePhoto() {
   const box = document.getElementById("photoResult");
   const button = document.getElementById("photoRecognize");
-  if (!photoFile || !photoReady()) return;
+  if (!photoFile || !photoReady() || photoBusy) return;
+  photoBusy = true;
   button.disabled = true;
+  document.getElementById("photoClear").style.display = "none";
   box.style.display = "";
   box.innerHTML = '<div class="pr-head"><span class="spinner"></span>Die KI schaut sich dein Foto an … (dauert meist 10–30 Sekunden)</div>';
   try {
@@ -1678,8 +1694,9 @@ async function recognizePhoto() {
     });
     renderPhotoSuggestions(data);
   } catch (err) {
-    box.innerHTML = `<div class="pr-error">${escapeHtml(err.message || String(err))}</div>`;
+    box.innerHTML = `<div class="pr-error">${escapeHtml(err.message || String(err))}</div><div class="backup-row"><button type="button" class="btn ghost" id="photoDiscard">Verwerfen</button></div>`;
   } finally {
+    photoBusy = false;
     updatePhotoButton();
   }
 }
@@ -1691,7 +1708,7 @@ function photoItemValues(item) {
 function renderPhotoSuggestions(data) {
   const box = document.getElementById("photoResult");
   if (!photoSuggestions.length) {
-    box.innerHTML = `<div class="pr-head">${escapeHtml(data.beschreibung || "")}</div><div class="pr-error">Die KI hat auf dem Foto nichts Essbares erkannt. Bitte selbst eintragen.</div>`;
+    box.innerHTML = `<div class="pr-head">${escapeHtml(data.beschreibung || "")}</div><div class="pr-error">Die KI hat auf dem Foto nichts Essbares erkannt. Bitte selbst eintragen.</div><div class="backup-row"><button type="button" class="btn ghost" id="photoDiscard">Verwerfen</button></div>`;
     return;
   }
   const cost = num(data.kosten_usd);
@@ -1715,7 +1732,10 @@ function renderPhotoSuggestions(data) {
       </label>`;
     }).join("")}
     <div class="pr-meta" id="photoTotals"></div>
-    <button type="button" class="btn" id="photoAddAll">Ausgewählte eintragen</button>
+    <div class="backup-row">
+      <button type="button" class="btn" id="photoAddAll">Ausgewählte eintragen</button>
+      <button type="button" class="btn ghost" id="photoDiscard">Verwerfen</button>
+    </div>
     <div class="pr-meta">Mengen sind Schätzungen – bitte anpassen, wenn du mehr oder weniger gegessen hast.${cost ? ` Diese Erkennung kostete etwa ${cost < 0.01 ? "unter 1 Cent" : (cost * 100).toFixed(1).replace(".", ",") + " US-Cent"}.` : ""}</div>`;
   updatePhotoTotals();
 }
@@ -1749,13 +1769,7 @@ async function addPhotoSuggestions() {
   await saveDay(currentDate, entries);
   render();
   showToast(`✓ ${chosen.length} ${chosen.length === 1 ? "Lebensmittel" : "Lebensmittel"} vom Foto eingetragen`);
-  photoSuggestions = [];
-  photoFile = null;
-  document.getElementById("photoInput").value = "";
-  document.getElementById("photoNote").value = "";
-  document.getElementById("photoPreview").textContent = "Foto vom Teller";
-  document.getElementById("photoResult").style.display = "none";
-  updatePhotoButton();
+  resetPhoto();
 }
 
 // ---------- Foto: selbst aus der Liste wählen ----------
@@ -2253,6 +2267,7 @@ function setupListeners() {
     if (food) document.getElementById("photoPortions").value = food.g;
   });
   document.getElementById("photoRecognize").addEventListener("click", recognizePhoto);
+  document.getElementById("photoClear").addEventListener("click", resetPhoto);
   document.getElementById("photoResult").addEventListener("input", e => {
     const input = e.target.closest("[data-pr-grams]");
     if (!input) return;
@@ -2270,6 +2285,10 @@ function setupListeners() {
   });
   document.getElementById("photoResult").addEventListener("click", e => {
     if (e.target.closest("#photoAddAll")) addPhotoSuggestions();
+    if (e.target.closest("#photoDiscard")) {
+      resetPhoto();
+      showToast("Foto verworfen – nichts eingetragen");
+    }
   });
   document.getElementById("addPhotoGuess").addEventListener("click", async () => {
     const food = foodByName(document.getElementById("photoGuess").value);
