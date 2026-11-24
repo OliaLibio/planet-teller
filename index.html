@@ -256,9 +256,32 @@
   .recipe-warn { margin-top: 4px; font-size: 12px; color: var(--rose); }
   details.recipe .btn { margin-top: 8px; padding: 8px 12px; }
   #portionRecipe details.recipe { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line-soft); }
+  /* Schnellleiste: bleibt beim Scrollen oben stehen */
+  .quickbar { position: sticky; top: 0; z-index: 20; display: flex; gap: 6px; margin: 0 -6px 18px; padding: 8px 6px; padding-top: max(8px, env(safe-area-inset-top)); background: rgba(238,243,238,0.92); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line-soft); }
+  .quickbar button { flex: 1; min-height: 44px; padding: 8px 6px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg-card); color: var(--ink-soft); font-family: 'Inter', sans-serif; font-size: 13px; cursor: pointer; transition: all 0.2s; }
+  .quickbar button:hover { border-color: var(--leaf-soft); color: var(--ink); }
+  .quickbar .qb-main { flex: 2.2; background: var(--leaf); border-color: var(--leaf); color: #fffdf7; font-weight: 600; font-size: 14px; }
+  .quickbar .qb-main:hover { background: var(--ink); border-color: var(--ink); color: #fffdf7; }
+  .section, details.settings { scroll-margin-top: 76px; }
+  /* Eingabebereich farblich hervorgehoben */
+  .section.highlight { background: #eef6ec; border: 2px solid var(--leaf-soft); box-shadow: 0 6px 18px rgba(47,111,79,0.08); }
+  .section.highlight h2 { font-size: 24px; }
+  .section.highlight .tabs { background: var(--bg-card); }
+  .section.highlight .tab.active { background: var(--leaf); color: #fffdf7; }
+  .section.highlight input[type="text"], .section.highlight input[type="number"], .section.highlight .food-list, .section.highlight .portion-panel { background: var(--bg-card); }
+  .section.flash { animation: flash 1.2s ease; }
+  @keyframes flash { 0% { box-shadow: 0 0 0 0 rgba(47,111,79,0.45); } 100% { box-shadow: 0 0 0 14px rgba(47,111,79,0); } }
+  /* Kurze Bestätigung nach dem Eintragen */
+  .toast { position: fixed; left: 50%; bottom: max(24px, env(safe-area-inset-bottom)); transform: translate(-50%, 20px); opacity: 0; z-index: 30; width: max-content; max-width: min(92vw, 520px); padding: 12px 16px; border-radius: 14px; background: var(--ink); color: #fffdf7; font-size: 13px; line-height: 1.4; box-shadow: 0 8px 24px rgba(34,48,43,0.25); transition: all 0.25s ease; pointer-events: none; display: flex; gap: 12px; align-items: center; }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+  .toast button { background: none; border: 1px solid rgba(255,253,247,0.5); color: #fffdf7; border-radius: 8px; padding: 6px 10px; font-size: 12px; cursor: pointer; white-space: nowrap; }
   .notice { margin-bottom: 18px; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(199,95,104,0.35); background: var(--bg-card); font-size: 12px; color: var(--rose); line-height: 1.45; }
 
   @media (max-width: 480px) {
+    .quickbar { gap: 5px; }
+    .quickbar button { font-size: 12px; padding: 8px 4px; }
+    .quickbar .qb-main { font-size: 13px; }
+    .section.highlight { padding: 18px 14px; margin-left: -6px; margin-right: -6px; }
     .alt-item { flex-direction: column; gap: 2px; }
     .dish-item { grid-template-columns: 1fr 72px auto; }
     .dish-item .d-unit { display: none; }
@@ -302,6 +325,13 @@
 
   <div class="notice" id="storageWarning" style="display:none;">Dieser Browser lässt das Speichern gerade nicht zu. Deine Einträge bleiben nur, solange die Seite offen ist — lade am besten unten eine Sicherung herunter.</div>
 
+  <nav class="quickbar" id="quickbar" aria-label="Schnellzugriff">
+    <button type="button" class="qb-main" data-go="eintragen">＋ Essen eintragen</button>
+    <button type="button" data-go="gericht">Gericht</button>
+    <button type="button" data-go="teller">Heute</button>
+    <button type="button" data-go="woche">Woche</button>
+  </nav>
+
   <div class="rings">
     <div class="ring-card kcal">
       <div class="label">Energie</div>
@@ -332,92 +362,7 @@
     </div>
   </div>
 
-  <div class="section">
-    <h2>Mein Körper, mein <span class="accent">Planet-Budget</span></h2>
-    <p class="lead">Die App soll nicht weniger Essen erzwingen, sondern passend essen lernen: genug Energie, genug Eiweiß, und Lebensmittel so wählen, dass die Erde mitatmen kann.</p>
-    <div class="profile-grid">
-      <label>Alter<input type="number" id="ageIn" min="12" max="100" value="30"></label>
-      <label>Gewicht kg<input type="number" id="weightIn" min="30" max="220" value="50"></label>
-      <label>Größe cm<input type="number" id="heightIn" min="120" max="230" value="165"></label>
-      <label>Aktivität
-        <select id="activityIn">
-          <option value="1.25">ruhig</option>
-          <option value="1.45" selected>normal</option>
-          <option value="1.65">aktiv</option>
-          <option value="1.85">sehr aktiv</option>
-        </select>
-      </label>
-      <label class="half">Körper (für die Formel)
-        <select id="sexIn">
-          <option value="w" selected>weiblich</option>
-          <option value="m">männlich</option>
-        </select>
-      </label>
-      <label class="half">Ernährungsweise
-        <select id="dietIn">
-          <option value="alles" selected>ich esse alles</option>
-          <option value="pescetarisch">kein Fleisch, aber Fisch</option>
-          <option value="vegetarisch">vegetarisch</option>
-          <option value="vegan">vegan</option>
-        </select>
-      </label>
-      <label class="half">Protein-Ziel
-        <select id="proteinFactorIn">
-          <option value="0.9">sanft: 0,9 g/kg</option>
-          <option value="1.2" selected>ausgewogen: 1,2 g/kg</option>
-          <option value="1.6">sportlich: 1,6 g/kg</option>
-        </select>
-      </label>
-      <label class="half">Erde-Ziel
-        <select id="planetModeIn">
-          <option value="1800">streng: 1,8 kg CO₂/Tag</option>
-          <option value="2500" selected>balanciert: 2,5 kg CO₂/Tag</option>
-          <option value="3200">sanft starten: 3,2 kg CO₂/Tag</option>
-        </select>
-      </label>
-      <div class="wide">
-        <div class="field-title">Allergien &amp; Unverträglichkeiten — das vertrage ich nicht</div>
-        <div class="chip-row" id="avoidGrid"></div>
-        <div class="field-hint">Markierte Zutaten werden in der Liste gekennzeichnet und nicht mehr vorgeschlagen. Die Angaben sind Richtwerte — bei einer Allergie bitte immer die Packung prüfen.</div>
-      </div>
-      <label class="wide">Gesundheitliche Notiz, nur lokal gespeichert<textarea id="healthNoteIn" placeholder="z. B. Eisen beachten, ärztliche Hinweise ..."></textarea></label>
-    </div>
-    <div class="profile-result" aria-live="polite">
-      <div class="result-item">
-        <div class="result-value"><span id="calcKcal">1800</span></div>
-        <div class="result-label">kcal pro Tag</div>
-      </div>
-      <div class="result-item">
-        <div class="result-value"><span id="calcProt">60</span> g</div>
-        <div class="result-label">Protein pro Tag</div>
-      </div>
-      <div class="result-item">
-        <div class="result-value"><span id="calcCO2">2500</span> g</div>
-        <div class="result-label">CO₂-Budget pro Tag</div>
-      </div>
-    </div>
-    <button class="btn" id="calcProfile">Ziele aus Körperdaten berechnen</button>
-    <div class="calc-note" id="calcNote">Ändere deine Körperdaten und drücke den Knopf. Die Ringe oben und die Wochenration werden danach aktualisiert.</div>
-  </div>
-
-  <div class="section">
-    <h2>Meine wöchentliche <span class="accent">Ration</span></h2>
-    <p class="lead">Wähle, was du gerne isst. Daraus entsteht eine Wochenorientierung in Gramm: nicht als Verbot, sondern als ruhiger Rahmen. Fertige Gerichte, Getränke und Süßes zählen hier nicht mit.</p>
-    <div class="pref-grid" id="prefGrid"></div>
-    <div class="weekly-grid" id="weeklyPlan"></div>
-  </div>
-
-  <div class="section">
-    <h2>Analyse nach ein paar <span class="accent">Wochen</span></h2>
-    <p class="lead">Aus deinen gespeicherten Tagen erkennt die App nach festen Regeln Muster und schlägt Lebensmittel vor, die Bedarf, Vielfalt und CO₂-Budget besser zusammenbringen. Alles bleibt auf deinem Gerät.</p>
-    <div class="analysis-toolbar">
-      <div class="analysis-range" id="analysisRange">Noch keine Analyse berechnet.</div>
-      <button class="btn ghost" id="runAnalysis">Analyse aktualisieren</button>
-    </div>
-    <div class="analysis-grid" id="analysisGrid"></div>
-  </div>
-
-  <div class="section" id="inputSection">
+  <div class="section highlight" id="inputSection">
     <h2>Was hast du <span class="accent">gegessen</span>?</h2>
     <div class="tabs">
       <button class="tab active" data-tab="search">Aus Liste</button>
@@ -501,7 +446,7 @@
     </div>
   </div>
 
-  <div class="section">
+  <div class="section" id="tellerSection">
     <h2>Heute auf meinem <span class="accent">Teller</span></h2>
     <div class="entries" id="entries"></div>
     <div class="summary" id="summary"></div>
@@ -517,11 +462,96 @@
     </div>
   </div>
 
-  <div class="section">
+  <div class="section" id="discoverSection">
     <h2>Neues <span class="accent">entdecken</span></h2>
     <p class="lead">Meist isst man immer wieder das Gleiche. Hier stehen jeden Tag drei Ideen, die du in den letzten Wochen nicht eingetragen hast — leicht für die Erde und passend zu deinen Angaben oben.</p>
     <div class="analysis-grid" id="discoverGrid"></div>
     <button class="btn ghost" id="discoverMore" style="margin-top:12px;">Andere Ideen zeigen</button>
+  </div>
+
+  <div class="section" id="weeklySection">
+    <h2>Meine wöchentliche <span class="accent">Ration</span></h2>
+    <p class="lead">Wähle, was du gerne isst. Daraus entsteht eine Wochenorientierung in Gramm: nicht als Verbot, sondern als ruhiger Rahmen. Fertige Gerichte, Getränke und Süßes zählen hier nicht mit.</p>
+    <div class="pref-grid" id="prefGrid"></div>
+    <div class="weekly-grid" id="weeklyPlan"></div>
+  </div>
+
+  <div class="section" id="analysisSection">
+    <h2>Analyse nach ein paar <span class="accent">Wochen</span></h2>
+    <p class="lead">Aus deinen gespeicherten Tagen erkennt die App nach festen Regeln Muster und schlägt Lebensmittel vor, die Bedarf, Vielfalt und CO₂-Budget besser zusammenbringen. Alles bleibt auf deinem Gerät.</p>
+    <div class="analysis-toolbar">
+      <div class="analysis-range" id="analysisRange">Noch keine Analyse berechnet.</div>
+      <button class="btn ghost" id="runAnalysis">Analyse aktualisieren</button>
+    </div>
+    <div class="analysis-grid" id="analysisGrid"></div>
+  </div>
+
+  <div class="section" id="profileSection">
+    <h2>Mein Körper, mein <span class="accent">Planet-Budget</span></h2>
+    <p class="lead">Die App soll nicht weniger Essen erzwingen, sondern passend essen lernen: genug Energie, genug Eiweiß, und Lebensmittel so wählen, dass die Erde mitatmen kann.</p>
+    <div class="profile-grid">
+      <label>Alter<input type="number" id="ageIn" min="12" max="100" value="30"></label>
+      <label>Gewicht kg<input type="number" id="weightIn" min="30" max="220" value="50"></label>
+      <label>Größe cm<input type="number" id="heightIn" min="120" max="230" value="165"></label>
+      <label>Aktivität
+        <select id="activityIn">
+          <option value="1.25">ruhig</option>
+          <option value="1.45" selected>normal</option>
+          <option value="1.65">aktiv</option>
+          <option value="1.85">sehr aktiv</option>
+        </select>
+      </label>
+      <label class="half">Körper (für die Formel)
+        <select id="sexIn">
+          <option value="w" selected>weiblich</option>
+          <option value="m">männlich</option>
+        </select>
+      </label>
+      <label class="half">Ernährungsweise
+        <select id="dietIn">
+          <option value="alles" selected>ich esse alles</option>
+          <option value="pescetarisch">kein Fleisch, aber Fisch</option>
+          <option value="vegetarisch">vegetarisch</option>
+          <option value="vegan">vegan</option>
+        </select>
+      </label>
+      <label class="half">Protein-Ziel
+        <select id="proteinFactorIn">
+          <option value="0.9">sanft: 0,9 g/kg</option>
+          <option value="1.2" selected>ausgewogen: 1,2 g/kg</option>
+          <option value="1.6">sportlich: 1,6 g/kg</option>
+        </select>
+      </label>
+      <label class="half">Erde-Ziel
+        <select id="planetModeIn">
+          <option value="1800">streng: 1,8 kg CO₂/Tag</option>
+          <option value="2500" selected>balanciert: 2,5 kg CO₂/Tag</option>
+          <option value="3200">sanft starten: 3,2 kg CO₂/Tag</option>
+        </select>
+      </label>
+      <div class="wide">
+        <div class="field-title">Allergien &amp; Unverträglichkeiten — das vertrage ich nicht</div>
+        <div class="chip-row" id="avoidGrid"></div>
+        <div class="field-hint">Markierte Zutaten werden in der Liste gekennzeichnet und nicht mehr vorgeschlagen. Die Angaben sind Richtwerte — bei einer Allergie bitte immer die Packung prüfen.</div>
+      </div>
+      <label class="wide">Gesundheitliche Notiz, nur lokal gespeichert<textarea id="healthNoteIn" placeholder="z. B. Eisen beachten, ärztliche Hinweise ..."></textarea></label>
+    </div>
+    <div class="profile-result" aria-live="polite">
+      <div class="result-item">
+        <div class="result-value"><span id="calcKcal">1800</span></div>
+        <div class="result-label">kcal pro Tag</div>
+      </div>
+      <div class="result-item">
+        <div class="result-value"><span id="calcProt">60</span> g</div>
+        <div class="result-label">Protein pro Tag</div>
+      </div>
+      <div class="result-item">
+        <div class="result-value"><span id="calcCO2">2500</span> g</div>
+        <div class="result-label">CO₂-Budget pro Tag</div>
+      </div>
+    </div>
+    <button class="btn" id="calcProfile">Ziele aus Körperdaten berechnen</button>
+    <div class="calc-note" id="calcNote">Ändere deine Körperdaten und drücke den Knopf. Die Ringe oben und die Wochenration werden danach aktualisiert.</div>
   </div>
 
   <details class="settings">
@@ -562,6 +592,8 @@
     </div>
   </details>
 
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
   <footer>
     Jeden Tag eine kleine Entscheidung. Für mich, für die Erde.
   </footer>
@@ -569,7 +601,7 @@
 
 <script src="./foods.js?v=8"></script>
 <script src="./recipes.js?v=9"></script>
-<script src="./app.js?v=11"></script>
+<script src="./app.js?v=12"></script>
 <script src="./sync.js?v=6"></script>
 </body>
 </html>

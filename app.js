@@ -1284,6 +1284,35 @@ async function addEntry(entry) {
   entries.push(entry);
   await saveDay(currentDate, entries);
   render();
+  showToast(`✓ ${entry.n} eingetragen (${entry.u.replace(/ · .*$/, "")})`);
+}
+
+// ---------- Schnellleiste und Bestätigung ----------
+let toastTimer = null;
+function showToast(text) {
+  const toast = document.getElementById("toast");
+  if (!toast) return;
+  toast.innerHTML = `<span>${escapeHtml(text)}</span><button type="button" data-go="teller">Ansehen</button>`;
+  toast.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove("show"), 3500);
+}
+
+function goTo(target) {
+  const ids = {eintragen: "inputSection", gericht: "inputSection", teller: "tellerSection", woche: "weeklySection"};
+  const section = document.getElementById(ids[target]);
+  if (!section) return;
+  if (target === "eintragen") showTab("search");
+  if (target === "gericht") showTab("dish");
+  section.scrollIntoView({behavior: "smooth", block: "start"});
+  section.classList.remove("flash");
+  void section.offsetWidth; // Animation neu starten
+  section.classList.add("flash");
+  if (target === "eintragen") {
+    // Suchfeld bereitmachen; die Tastatur öffnet sich erst beim Antippen des Feldes
+    setTimeout(() => document.getElementById("search").focus({preventScroll: true}), 450);
+  }
+  document.getElementById("toast").classList.remove("show");
 }
 
 // ---------- Frei eintragen ----------
@@ -1979,6 +2008,12 @@ function setupListeners() {
     render();
   });
 
+  // Schnellleiste oben und „Ansehen“ in der Bestätigung
+  document.addEventListener("click", e => {
+    const button = e.target.closest("[data-go]");
+    if (button) goTo(button.dataset.go);
+  });
+
   // Rezept als eigenes Gericht übernehmen (Knopf steht in mehreren Bereichen)
   document.addEventListener("click", e => {
     const button = e.target.closest("[data-recipe-adopt]");
@@ -2072,6 +2107,7 @@ function setupListeners() {
     entries.push(...meal.items.map(item => ({...item, n: `${item.n} (Vorschlag)`, src: "vorschlag"})));
     await saveDay(currentDate, entries);
     render();
+    showToast(`✓ ${meal.title} eingetragen (${meal.items.length} Lebensmittel)`);
   });
 
   // Neues entdecken
