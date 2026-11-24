@@ -1012,10 +1012,16 @@ function renderFoodList(query) {
   let list;
   let frequentCount = 0;
   if (q) {
-    const local = rankFoods(localPool, q);
+    let local = rankFoods(localPool, q);
+    // Nichts in der gewählten Kategorie? Dann in allen Bereichen suchen – sonst wirkt es, als fehle das Lebensmittel.
+    let widened = false;
+    if (!local.length && activeCategory !== "alle") {
+      local = rankFoods([...customFoods, ...FOODS], q);
+      widened = local.length > 0;
+    }
     const seen = new Set(local.map(f => f.nameNorm));
     const online = onlineFoods.filter(f => {
-      if (seen.has(f.nameNorm) || !categoryMatches(f)) return false;
+      if (seen.has(f.nameNorm) || (!widened && !categoryMatches(f))) return false;
       seen.add(f.nameNorm);
       return true;
     });
@@ -2169,9 +2175,42 @@ function setupListeners() {
   document.getElementById("importReplace").addEventListener("click", () => applyImport(true));
 
   document.getElementById("foodStatus").textContent = defaultFoodStatus();
+  document.getElementById("updateNow").addEventListener("click", () => location.reload());
 }
 
+// ---------- Neue Fassung erkennen ----------
+// Eine geöffnete App (vor allem auf dem Handy-Startbildschirm) lädt Neuerungen nicht von selbst.
+// Darum regelmäßig nachsehen, ob index.html auf eine neuere app.js verweist, und dann einen Knopf anbieten.
+const LOADED_VERSION = (() => {
+  const script = [...document.scripts].find(s => /app\.js\?v=/.test(s.src));
+  return script ? script.src.match(/app\.js\?v=(\d+)/)[1] : "";
+})();
+let lastUpdateCheck = 0;
+
+async function checkForUpdate() {
+  if (location.protocol === "file:" || Date.now() - lastUpdateCheck < 60000) return;
+  lastUpdateCheck = Date.now();
+  try {
+    const html = await (await fetch("./index.html", {cache: "no-store"})).text();
+    const match = html.match(/app\.js\?v=(\d+)/);
+    if (match && LOADED_VERSION && match[1] !== LOADED_VERSION) {
+      document.getElementById("updateBanner").style.display = "";
+    }
+  } catch (e) { /* offline – später erneut */ }
+}
+
+function showVersion() {
+  const el = document.getElementById("appVersion");
+  if (el) el.textContent = `Fassung ${LOADED_VERSION || "?"}`;
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") checkForUpdate();
+});
+
 init();
+showVersion();
+setTimeout(checkForUpdate, 3000);
 
 // Offline-Unterstützung nur dort, wo der Browser sie erlaubt (https oder localhost).
 if ("serviceWorker" in navigator && window.isSecureContext && location.protocol !== "file:") {

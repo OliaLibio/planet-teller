@@ -275,6 +275,9 @@
   .toast { position: fixed; left: 50%; bottom: max(24px, env(safe-area-inset-bottom)); transform: translate(-50%, 20px); opacity: 0; z-index: 30; width: max-content; max-width: min(92vw, 520px); padding: 12px 16px; border-radius: 14px; background: var(--ink); color: #fffdf7; font-size: 13px; line-height: 1.4; box-shadow: 0 8px 24px rgba(34,48,43,0.25); transition: all 0.25s ease; pointer-events: none; display: flex; gap: 12px; align-items: center; }
   .toast.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
   .toast button { background: none; border: 1px solid rgba(255,253,247,0.5); color: #fffdf7; border-radius: 8px; padding: 6px 10px; font-size: 12px; cursor: pointer; white-space: nowrap; }
+  .update-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; padding: 12px 14px; border-radius: 14px; background: var(--leaf); color: #fffdf7; font-size: 13px; }
+  .update-banner .btn { background: #fffdf7; color: var(--leaf); padding: 8px 12px; white-space: nowrap; }
+  .app-version { margin-top: 6px; font-family: 'Inter', sans-serif; font-style: normal; font-size: 10px; letter-spacing: 0.06em; color: var(--ink-faint); }
   .notice { margin-bottom: 18px; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(199,95,104,0.35); background: var(--bg-card); font-size: 12px; color: var(--rose); line-height: 1.45; }
 
   @media (max-width: 480px) {
@@ -322,6 +325,11 @@
     <button id="nextDay" title="Nächster Tag">›</button>
   </div>
   <div class="sync-badge" id="syncBadge" style="display:none;"></div>
+
+  <div class="update-banner" id="updateBanner" style="display:none;">
+    <span>Es gibt eine neue Fassung der App.</span>
+    <button type="button" class="btn" id="updateNow">Jetzt aktualisieren</button>
+  </div>
 
   <div class="notice" id="storageWarning" style="display:none;">Dieser Browser lässt das Speichern gerade nicht zu. Deine Einträge bleiben nur, solange die Seite offen ist — lade am besten unten eine Sicherung herunter.</div>
 
@@ -596,12 +604,13 @@
 
   <footer>
     Jeden Tag eine kleine Entscheidung. Für mich, für die Erde.
+    <div class="app-version" id="appVersion"></div>
   </footer>
 </div>
 
 <script src="./foods.js?v=9"></script>
 <script src="./recipes.js?v=9"></script>
-<script src="./app.js?v=12"></script>
+<script src="./app.js?v=13"></script>
 <script src="./sync.js?v=6"></script>
 </body>
 </html>
