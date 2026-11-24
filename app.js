@@ -97,6 +97,7 @@ function normalizeSearchText(text) {
     .replaceAll("ö", "oe")
     .replaceAll("ü", "ue")
     .replaceAll("ß", "ss")
+    .replace(/sosse/g, "sauce") // „Tomatensoße“ findet „Tomatensauce“
     .replaceAll("é", "e")
     .replaceAll("è", "e");
 }
@@ -916,7 +917,11 @@ function termMatches(hay, term) {
   if (hay.includes(term)) return true;
   if (term.length < 5) return false;
   // einfache Mehrzahl-/Endungs-Toleranz: "tomaten" findet "tomate", "kartoffeln" findet "kartoffel"
-  return hay.includes(term.replace(/(en|n|e|s)$/, ""));
+  const stem = term.replace(/(en|n|e|s)$/, "");
+  if (hay.includes(stem)) return true;
+  // zusammengeschriebene Wörter: "bananenbluetencurry" findet "Bananenblüten-Curry"
+  const compact = hay.replace(/[\s\-,()/]+/g, "");
+  return compact.includes(term) || compact.includes(stem);
 }
 
 function searchScore(food, queryNorm, terms) {
@@ -946,10 +951,21 @@ function bestLocalMatch(text) {
   const pool = [...customFoods, ...FOODS];
   const ranked = rankFoods(pool, text);
   if (ranked.length) return ranked[0];
+  // Bei längeren Beschreibungen („veganer Proteinshake mit Kollagen und Kreatin“) gewinnt das
+  // Lebensmittel, das die meisten Wörter enthält; bei Gleichstand zählt ein Treffer im Namen mehr.
   const terms = searchTermsOf(text).filter(t => t.length >= 4);
-  for (const term of terms) {
-    const hit = rankFoods(pool, term)[0];
-    if (hit) return hit;
+  if (terms.length) {
+    let best = null;
+    let bestScore = 0;
+    pool.forEach(food => {
+      // Lange, genaue Wörter („linsensuppe“) zählen mehr als kurze, allgemeine („brot“).
+      const matched = terms.filter(t => termMatches(food.hay, t));
+      if (!matched.length) return;
+      const inName = terms.filter(t => termMatches(food.nameNorm, t)).length;
+      const score = matched.reduce((sum, t) => sum + t.length, 0) * 10 + inName;
+      if (score > bestScore) { best = food; bestScore = score; }
+    });
+    if (best) return best;
   }
   const q = normalizeFoodName(text);
   return pool.find(f => {

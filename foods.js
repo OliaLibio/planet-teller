@@ -118,7 +118,8 @@ const FOOD_ROWS = [
   ["Milch 3,5 %", "milch", 65, 3.5, 3.15, "1 Glas=200", "l", "kuhmilch vollmilch", "milchdrink"],
   ["Hartkäse (Gouda etc.)", "milch", 350, 23.3, 15, "1 Scheibe=30", "", "kaese gouda edamer schnittkaese", "kaese"],
   ["Hüttenkäse", "milch", 98, 11, 3.5, "100;1 Becher=200", "", "koerniger frischkaese cottage cheese"],
-  ["Frischkäse", "milch", 233, 6.7, 8, "30", "", "kaese philadelphia", "kaese"],
+  ["Frischkäse", "milch", 233, 6.7, 8, "30;1 EL=20", "", "kaese philadelphia streichkaese aufstrichkaese doppelrahmstufe", "kaese"],
+  ["Frischkäse light", "milch", 140, 8, 6, "30;1 EL=20", "", "kaese philadelphia leicht balance streichkaese aufstrichkaese", "kaese"],
   ["Feta", "milch", 260, 14, 8, "50", "", "kaese schafskaese hirtenkaese", "kaese"],
   ["Mozzarella", "milch", 250, 18, 8, "50;1 Kugel=125", "", "kaese", "kaese"],
   ["Butter", "milch", 750, 0, 12, "10", "", "", "butter"],
@@ -176,6 +177,7 @@ const FOOD_ROWS = [
   ["Quinoa, gekocht", "getreide", 120, 4, 0.6, "150", "", ""],
   ["Weißbrot / Toast", "getreide", 265, 8, 1.57, "1 Scheibe=25", "G", "brot toastbrot baguette"],
   ["Mischbrot", "getreide", 225, 6.5, 1.57, "1 Scheibe=45", "G", "brot graubrot bauernbrot"],
+  ["Sauerteigbrot", "getreide", 230, 7.5, 1.57, "1 Scheibe=50", "G", "brot sauerteig roggenmischbrot weizensauerteig sourdough"],
   ["Roggenbrot", "getreide", 200, 6, 1.57, "1 Scheibe=50", "G", "brot schwarzbrot pumpernickel"],
   ["Vollkornbrötchen", "getreide", 240, 9, 1.57, "1 Stück=65", "G", "broetchen koernerbroetchen semmel"],
   ["Laugenbrezel", "getreide", 290, 9, 1.57, "1 Stück=85", "G", "brezel breze laugengebaeck"],
@@ -382,6 +384,7 @@ const FOOD_ROWS = [
   ["Linsensuppe", "gericht", 85, 5, 0.9, "1 Teller=400", "", "linseneintopf rote linsen suppe vegan"],
   ["Linsen-Dal mit Reis", "gericht", 130, 5.5, 1.2, "1 Teller=400", "", "dhal daal indisch vegan"],
   ["Gemüsecurry mit Reis", "gericht", 125, 3, 1.4, "1 Teller=400", "", "curry kokosmilch thai vegan"],
+  ["Bananenblüten-Curry (ohne Reis)", "gericht", 90, 2, 1.2, "1 Portion=250", "", "bananenbluete bananenblueten banana blossom curry kokosmilch vegan thai indisch"],
   ["Kichererbsen-Curry mit Reis", "gericht", 135, 5, 1.3, "1 Teller=400", "", "curry chana masala vegan"],
   ["Tofu-Gemüse-Pfanne mit Reis", "gericht", 125, 6.5, 1.7, "1 Teller=400", "S", "tofu wok vegan"],
   ["Gebratener Reis mit Gemüse", "gericht", 150, 3.5, 1.3, "1 Teller=350", "S", "reispfanne wok asiatisch"],
@@ -423,7 +426,12 @@ const FOOD_ROWS = [
   ["Ketchup", "sonst", 100, 1.2, 1.5, "1 EL=15", "", "tomatenketchup sauce"],
   ["Pesto", "sonst", 450, 5, 3.5, "1 EL=15", "MN", "basilikum sauce"],
   ["Hafer-Kochcreme", "sonst", 150, 1, 1.2, "1 EL=15;50", "Gl", "hafersahne hafer cuisine pflanzliche sahne vegan"],
-  ["Veganer Käse", "sonst", 280, 0.5, 2, "1 Scheibe=20", "", "pflanzlicher kaese kaeseersatz"]
+  ["Veganer Käse", "sonst", 280, 0.5, 2, "1 Scheibe=20", "", "pflanzlicher kaese kaeseersatz"],
+  // Shakes und Pulver: Shake = 30 g Pulver plus 300 ml Flüssigkeit. Bei eigenen Mischungen besser die Packungswerte frei eintragen.
+  ["Proteinshake vegan (mit Wasser)", "getraenk", 35, 6.7, 0.36, "1 Shaker=330", "", "eiweissshake proteinshake veganer vegane erbsenprotein shake"],
+  ["Proteinshake vegan (mit Hafermilch)", "getraenk", 75, 8, 1.1, "1 Shaker=330", "G", "eiweissshake proteinshake veganer vegane erbsenprotein shake haferdrink"],
+  ["Kollagenpulver", "sonst", 360, 90, 5, "1 Portion=10", "T", "kollagen collagen peptide pulver eiweiss rind fisch"],
+  ["Kreatin (Pulver)", "sonst", 0, 0, 2, "1 Portion=5", "", "kreatin creatin monohydrat creapure pulver"]
 ];
 
 // Ab hier: aus den Zeilen werden Objekte gebaut.
