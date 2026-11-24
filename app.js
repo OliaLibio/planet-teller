@@ -1604,7 +1604,161 @@ function adoptRecipe(name) {
   document.getElementById("inputSection").scrollIntoView({behavior: "smooth", block: "start"});
 }
 
-// ---------- Foto (noch ohne automatische Erkennung) ----------
+// ---------- Foto mit KI-Erkennung ----------
+// Ablauf: Foto wählen → verkleinern → an die Supabase-Funktion „foto-erkennung“ schicken
+// (nur angemeldet) → Vorschläge prüfen → bestätigen. Eingetragen wird nur, was angehakt ist.
+let photoFile = null;
+let photoSuggestions = []; // [{name, food, grams, k100, p100, co2, est, on, sicherheit, hinweis}]
+
+function photoReady() {
+  return !!(window.PlanetSync && PlanetSync.client && PlanetSync.user);
+}
+
+function updatePhotoButton() {
+  const button = document.getElementById("photoRecognize");
+  const hint = document.getElementById("photoHint");
+  button.disabled = !photoFile || !photoReady();
+  if (!photoReady()) {
+    hint.textContent = "Für die KI-Erkennung bitte unten bei „Mac & Handy abgleichen“ anmelden. Bis dahin kannst du selbst aus der Liste wählen.";
+  } else {
+    hint.textContent = "Die KI schlägt Lebensmittel und Mengen vor – du prüfst und bestätigst. Dafür geht das Foto einmalig an Anthropic (Claude) und wird nicht gespeichert. Kosten: etwa 3–5 Cent pro Foto.";
+  }
+}
+
+// Verkleinert das Foto auf höchstens 1280 px an der langen Seite (spart Daten und Kosten).
+function shrinkPhoto(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, 1280 / Math.max(img.naturalWidth, img.naturalHeight));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.naturalWidth * scale);
+      canvas.height = Math.round(img.naturalHeight * scale);
+      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(img.src);
+      resolve(canvas.toDataURL("image/jpeg", 0.82).split(",")[1]);
+    };
+    img.onerror = () => reject(new Error("Das Foto konnte nicht gelesen werden."));
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+async function recognizePhoto() {
+  const box = document.getElementById("photoResult");
+  const button = document.getElementById("photoRecognize");
+  if (!photoFile || !photoReady()) return;
+  button.disabled = true;
+  box.style.display = "";
+  box.innerHTML = '<div class="pr-head"><span class="spinner"></span>Die KI schaut sich dein Foto an … (dauert meist 10–30 Sekunden)</div>';
+  try {
+    const bild = await shrinkPhoto(photoFile);
+    const namen = [...new Set([...FOODS, ...customFoods].map(f => f.n))];
+    const {data, error} = await PlanetSync.client.functions.invoke("foto-erkennung", {
+      body: {bild, media_type: "image/jpeg", notiz: document.getElementById("photoNote").value.trim(), namen}
+    });
+    if (error) {
+      let message = "Die Fotoerkennung ist gerade nicht erreichbar.";
+      try { const detail = await error.context.json(); if (detail && detail.fehler) message = detail.fehler; } catch (e) { /* Standardtext */ }
+      throw new Error(message);
+    }
+    photoSuggestions = (data.lebensmittel || []).map(item => {
+      const food = item.aus_liste ? foodByName(item.name) : null;
+      return {
+        name: food ? food.n : String(item.name || "Unbekannt"),
+        food,
+        grams: Math.max(1, Math.round(num(item.gramm) || (food ? food.g : 100))),
+        k100: food ? food.k100 : num(item.kcal_pro_100g),
+        p100: food ? food.p100 : num(item.protein_pro_100g),
+        co2: food ? food.co2 : estimateCO2PerKg(item.name),
+        est: !food || !!food.co2est,
+        on: true,
+        sicherheit: item.sicherheit || "mittel",
+        hinweis: item.hinweis || ""
+      };
+    });
+    renderPhotoSuggestions(data);
+  } catch (err) {
+    box.innerHTML = `<div class="pr-error">${escapeHtml(err.message || String(err))}</div>`;
+  } finally {
+    updatePhotoButton();
+  }
+}
+
+function photoItemValues(item) {
+  return {k: item.k100 * item.grams / 100, p: item.p100 * item.grams / 100, c: item.co2 * item.grams};
+}
+
+function renderPhotoSuggestions(data) {
+  const box = document.getElementById("photoResult");
+  if (!photoSuggestions.length) {
+    box.innerHTML = `<div class="pr-head">${escapeHtml(data.beschreibung || "")}</div><div class="pr-error">Die KI hat auf dem Foto nichts Essbares erkannt. Bitte selbst eintragen.</div>`;
+    return;
+  }
+  const cost = num(data.kosten_usd);
+  box.innerHTML = `
+    <div class="pr-head">${escapeHtml(data.beschreibung || "Das habe ich erkannt:")}</div>
+    ${photoSuggestions.map((item, i) => {
+      const v = photoItemValues(item);
+      const source = item.food ? "aus deiner Liste" : "Werte von der KI geschätzt";
+      const unsure = item.sicherheit !== "hoch" ? `<span class="pr-unsure"> · ${item.sicherheit === "niedrig" ? "unsicher" : "eher sicher"}</span>` : "";
+      const conflicts = item.food ? foodConflicts(item.food) : [];
+      return `
+      <label class="pr-item">
+        <input type="checkbox" data-pr-check="${i}" ${item.on ? "checked" : ""}>
+        <div>
+          <div class="pr-name">${escapeHtml(item.name)}</div>
+          <div class="pr-info" data-pr-info="${i}">${Math.round(v.k)} kcal · ${v.p.toFixed(1)} g P · ${item.est ? "≈ " : ""}${Math.round(v.c)} g CO₂ · ${source}${unsure}</div>
+          ${item.hinweis ? `<div class="pr-info">${escapeHtml(item.hinweis)}</div>` : ""}
+          ${conflicts.length ? `<div class="pr-info pr-unsure">Achtung: ${escapeHtml(conflictText(conflicts))}</div>` : ""}
+        </div>
+        <input type="number" min="0" step="1" value="${item.grams}" data-pr-grams="${i}" aria-label="Gramm ${escapeHtml(item.name)}">
+      </label>`;
+    }).join("")}
+    <div class="pr-meta" id="photoTotals"></div>
+    <button type="button" class="btn" id="photoAddAll">Ausgewählte eintragen</button>
+    <div class="pr-meta">Mengen sind Schätzungen – bitte anpassen, wenn du mehr oder weniger gegessen hast.${cost ? ` Diese Erkennung kostete etwa ${cost < 0.01 ? "unter 1 Cent" : (cost * 100).toFixed(1).replace(".", ",") + " US-Cent"}.` : ""}</div>`;
+  updatePhotoTotals();
+}
+
+function updatePhotoTotals() {
+  let k = 0, p = 0, c = 0, count = 0;
+  photoSuggestions.forEach((item, i) => {
+    const v = photoItemValues(item);
+    const info = document.querySelector(`[data-pr-info="${i}"]`);
+    if (info) {
+      const rest = info.innerHTML.split(" · ").slice(3).join(" · ");
+      info.innerHTML = `${Math.round(v.k)} kcal · ${v.p.toFixed(1)} g P · ${item.est ? "≈ " : ""}${Math.round(v.c)} g CO₂ · ${rest}`;
+    }
+    if (!item.on) return;
+    k += v.k; p += v.p; c += v.c; count++;
+  });
+  const totals = document.getElementById("photoTotals");
+  if (totals) totals.textContent = `Zusammen (${count} ausgewählt): ${Math.round(k)} kcal · ${p.toFixed(1)} g Protein · ${Math.round(c)} g CO₂`;
+}
+
+async function addPhotoSuggestions() {
+  const chosen = photoSuggestions.filter(item => item.on && item.grams > 0);
+  if (!chosen.length) return;
+  chosen.forEach(item => {
+    const entry = item.food
+      ? scaleFood(item.food, item.grams)
+      : {n: item.name, u: `${Math.round(item.grams)} g`, ...photoItemValues(item),
+         group: inferGroup(item.name), grams: item.grams, est: 1};
+    entries.push({...entry, n: `${entry.n} (Foto bestätigt)`, src: "foto"});
+  });
+  await saveDay(currentDate, entries);
+  render();
+  showToast(`✓ ${chosen.length} ${chosen.length === 1 ? "Lebensmittel" : "Lebensmittel"} vom Foto eingetragen`);
+  photoSuggestions = [];
+  photoFile = null;
+  document.getElementById("photoInput").value = "";
+  document.getElementById("photoNote").value = "";
+  document.getElementById("photoPreview").textContent = "Foto vom Teller";
+  document.getElementById("photoResult").style.display = "none";
+  updatePhotoButton();
+}
+
+// ---------- Foto: selbst aus der Liste wählen ----------
 function renderPhotoOptions() {
   const select = document.getElementById("photoGuess");
   if (!select) return;
@@ -1783,6 +1937,7 @@ function showTab(tab) {
   document.getElementById("tabDish").style.display = tab === "dish" ? "" : "none";
   document.getElementById("tabPhoto").style.display = tab === "photo" ? "" : "none";
   if (tab === "dish") renderDishBuilder();
+  if (tab === "photo") updatePhotoButton();
 }
 
 // ---------- Sicherung: Daten als Datei speichern und wieder einlesen ----------
@@ -2083,6 +2238,10 @@ function setupListeners() {
   document.getElementById("photoInput").addEventListener("change", e => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
+    photoFile = file;
+    photoSuggestions = [];
+    document.getElementById("photoResult").style.display = "none";
+    updatePhotoButton();
     const url = URL.createObjectURL(file);
     document.getElementById("photoPreview").innerHTML = `<img src="${url}" alt="Ausgewähltes Essen">`;
     const guess = rankFoods(FOODS, file.name.replace(/\.[a-z0-9]+$/i, "").replace(/[_-]+/g, " "))[0];
@@ -2092,6 +2251,25 @@ function setupListeners() {
   document.getElementById("photoGuess").addEventListener("change", e => {
     const food = foodByName(e.target.value);
     if (food) document.getElementById("photoPortions").value = food.g;
+  });
+  document.getElementById("photoRecognize").addEventListener("click", recognizePhoto);
+  document.getElementById("photoResult").addEventListener("input", e => {
+    const input = e.target.closest("[data-pr-grams]");
+    if (!input) return;
+    const item = photoSuggestions[parseInt(input.dataset.prGrams)];
+    if (item) item.grams = Math.max(0, parseFloat(input.value) || 0);
+    updatePhotoTotals();
+  });
+  document.getElementById("photoResult").addEventListener("change", e => {
+    const box = e.target.closest("[data-pr-check]");
+    if (!box) return;
+    const item = photoSuggestions[parseInt(box.dataset.prCheck)];
+    if (item) item.on = box.checked;
+    box.closest(".pr-item").classList.toggle("off", !box.checked);
+    updatePhotoTotals();
+  });
+  document.getElementById("photoResult").addEventListener("click", e => {
+    if (e.target.closest("#photoAddAll")) addPhotoSuggestions();
   });
   document.getElementById("addPhotoGuess").addEventListener("click", async () => {
     const food = foodByName(document.getElementById("photoGuess").value);
