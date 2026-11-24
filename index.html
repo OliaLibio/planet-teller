@@ -228,10 +228,28 @@
   .sync-form input { padding: 11px 13px; background: var(--bg-card); border: 1px solid var(--line); border-radius: 10px; font-size: 14px; color: var(--ink); outline: none; }
   .sync-form input:focus { border-color: var(--leaf-soft); }
   .sync-message { color: var(--earth); }
+  .dish-results { max-height: 220px; margin-top: -2px; }
+  .dish-items { display: flex; flex-direction: column; gap: 6px; }
+  .dish-item { display: grid; grid-template-columns: 1fr 84px auto auto; gap: 8px; align-items: center; padding: 8px 10px; background: var(--bg); border: 1px solid var(--line-soft); border-radius: 10px; }
+  .dish-item .d-name { font-size: 13px; color: var(--ink); }
+  .dish-item .d-meta { font-size: 11px; color: var(--ink-faint); margin-top: 2px; }
+  .dish-item input { padding: 8px 9px; font-size: 13px; }
+  .dish-item .d-unit { font-size: 11px; color: var(--ink-faint); }
+  .dish-item .del, .dish-entry .del { background: none; border: none; color: var(--ink-faint); font-size: 16px; cursor: pointer; padding: 4px 8px; border-radius: 6px; }
+  .dish-item .del:hover, .dish-entry .del:hover { background: var(--rose); color: white; }
+  .dish-portions { font-size: 13px; color: var(--ink-soft); display: flex; align-items: center; gap: 8px; }
+  .dish-portions input { width: 70px !important; padding: 8px 10px !important; }
+  .dish-status { font-size: 12px; color: var(--leaf); min-height: 16px; }
+  .dish-list-title { margin-top: 12px; }
+  .dish-entry .e-vals { gap: 6px; }
+  .dish-entry .btn { padding: 7px 10px; font-size: 12px; }
   .notice { margin-bottom: 18px; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(199,95,104,0.35); background: var(--bg-card); font-size: 12px; color: var(--rose); line-height: 1.45; }
 
   @media (max-width: 480px) {
     .alt-item { flex-direction: column; gap: 2px; }
+    .dish-item { grid-template-columns: 1fr 72px auto; }
+    .dish-item .d-unit { display: none; }
+    .dish-entry { flex-direction: column; align-items: flex-start; gap: 8px; }
     .alt-meta { white-space: normal; }
     h1 { font-size: 28px; }
     .ring-card { padding: 14px 8px; }
@@ -391,6 +409,7 @@
     <div class="tabs">
       <button class="tab active" data-tab="search">Aus Liste</button>
       <button class="tab" data-tab="free">Frei eintragen</button>
+      <button class="tab" data-tab="dish">Gericht</button>
       <button class="tab" data-tab="photo">Foto</button>
     </div>
 
@@ -428,6 +447,27 @@
         <div class="free-preview" id="freePreview">Wenn der Name bekannt ist, rechne ich kcal, Protein und CO₂ aus der Grammzahl automatisch aus.</div>
         <div class="hint">Du kannst kcal, Protein oder CO₂ auch selbst überschreiben. Leere Felder werden geschätzt.</div>
         <button class="btn" id="addFree">Hinzufügen</button>
+      </div>
+    </div>
+
+    <div id="tabDish" style="display:none;">
+      <div class="free-input">
+        <div class="hint">Stell ein Gericht einmal aus seinen Zutaten zusammen. Danach findest du es unter „Aus Liste“ und trägst es mit einem Tipp ein – die App rechnet kcal, Protein und CO₂ für deine Portion.</div>
+        <input type="text" id="dishName" placeholder="Name, z. B. Bananenblüten-Curry nach meinem Rezept">
+        <input type="text" id="dishSearch" placeholder="Zutat suchen: Bananenblüte, Kokosmilch, Zwiebeln …">
+        <div class="food-list dish-results" id="dishResults" style="display:none;"></div>
+        <div class="dish-items" id="dishItems"></div>
+        <label class="dish-portions">Das ergibt <input type="number" id="dishPortions" min="1" max="20" step="1" value="2"> Portionen</label>
+        <div class="free-preview" id="dishPreview"></div>
+        <div class="portion-warn" id="dishWarn" style="display:none;"></div>
+        <div class="backup-row">
+          <button class="btn" id="dishSaveAdd">Speichern &amp; 1 Portion eintragen</button>
+          <button class="btn ghost" id="dishSave">Nur speichern</button>
+          <button class="btn ghost" id="dishReset">Neu beginnen</button>
+        </div>
+        <div class="dish-status" id="dishStatus"></div>
+        <div class="field-title dish-list-title">Meine Gerichte</div>
+        <div class="entries" id="dishList"></div>
       </div>
     </div>
 
@@ -513,8 +553,8 @@
   </footer>
 </div>
 
-<script src="./foods.js?v=6"></script>
-<script src="./app.js?v=6"></script>
+<script src="./foods.js?v=7"></script>
+<script src="./app.js?v=8"></script>
 <script src="./sync.js?v=6"></script>
 </body>
 </html>

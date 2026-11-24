@@ -348,16 +348,23 @@ async function savePrefs(list) { writeStoredValue(PREFS_KEY, JSON.stringify(list
 
 // ---------- Eigene / gemerkte Lebensmittel ----------
 function makeCustomFood(obj) {
-  const group = ALL_GROUPS.some(g => g.id === obj.group) ? obj.group : "sonst";
+  const recipe = obj.src === "rezept" && Array.isArray(obj.zutaten);
+  const group = recipe ? "gericht" : (ALL_GROUPS.some(g => g.id === obj.group) ? obj.group : "sonst");
   const liquid = group === "getraenk";
-  const grams = num(obj.g) || 100;
+  const grams = Math.max(1, Math.round(num(obj.g) || 100));
   const unit = liquid ? "ml" : "g";
-  const portions = [{g: grams, label: `${grams} ${unit}`, short: `${grams} ${unit}`}];
+  const portions = recipe
+    ? [{g: grams, label: `1 Portion (${grams} g)`, short: "1 Portion"}]
+    : [{g: grams, label: `${grams} ${unit}`, short: `${grams} ${unit}`}];
   if (grams !== 100) portions.push({g: 100, label: `100 ${unit}`, short: `100 ${unit}`});
   return prepareFood({
     n: String(obj.n), group, k100: num(obj.k100), p100: num(obj.p100), co2: num(obj.co2),
     co2est: !!obj.co2est, flags: String(obj.flags || ""), liquid, portions,
-    g: grams, u: portions[0].label, tags: "", alt: "", src: obj.src === "online" ? "online" : "eigen", saved: true
+    g: grams, u: portions[0].label, alt: "", saved: true,
+    tags: recipe ? obj.zutaten.map(z => z.n).join(" ") : "",
+    src: recipe ? "rezept" : (obj.src === "online" ? "online" : "eigen"),
+    zutaten: recipe ? obj.zutaten.map(z => ({n: String(z.n), g: num(z.g)})) : undefined,
+    port: recipe ? Math.max(1, num(obj.port) || 1) : undefined
   });
 }
 
@@ -367,10 +374,17 @@ function loadCustomFoods() {
 }
 
 function persistCustomFoods() {
-  const plain = customFoods.slice(0, 300).map(f => ({
-    n: f.n, group: f.group, k100: f.k100, p100: f.p100, co2: f.co2, co2est: f.co2est ? 1 : 0,
-    flags: f.flags, g: f.g, src: f.src
-  }));
+  // Eigene Gerichte immer behalten; gemerkte Einzel-Lebensmittel höchstens 300.
+  const recipes = customFoods.filter(f => f.src === "rezept");
+  const others = customFoods.filter(f => f.src !== "rezept").slice(0, 300);
+  const plain = [...recipes, ...others].map(f => {
+    const row = {
+      n: f.n, group: f.group, k100: f.k100, p100: f.p100, co2: f.co2, co2est: f.co2est ? 1 : 0,
+      flags: f.flags, g: f.g, src: f.src
+    };
+    if (f.src === "rezept") { row.zutaten = f.zutaten; row.port = f.port; }
+    return row;
+  });
   writeStoredValue(CUSTOM_KEY, JSON.stringify(plain));
 }
 
@@ -437,6 +451,7 @@ function renderAll() {
   render();
   renderFoodList(document.getElementById("search").value);
   renderBackupInfo();
+  renderDishList();
 }
 
 async function refreshDay() {
@@ -1026,6 +1041,7 @@ function renderFoodList(query) {
     if (!q && i < frequentCount) badges.push('<span class="food-source">oft</span>');
     if (f.src === "online") badges.push(`<span class="food-source">${f.saved ? "gemerkt" : "online"}</span>`);
     if (f.src === "eigen") badges.push('<span class="food-source">eigen</span>');
+    if (f.src === "rezept") badges.push('<span class="food-source">mein Gericht</span>');
     return `
     <div class="food-item" data-i="${i}">
       <div>
@@ -1257,7 +1273,9 @@ function updatePortionPreview() {
   const unit = selectedFood.liquid ? "ml" : "g";
   const source = selectedFood.src === "online"
     ? (selectedFood.co2est ? " · Nährwerte laut Open Food Facts, CO₂ geschätzt" : " · Werte laut Open Food Facts")
-    : "";
+    : selectedFood.src === "rezept"
+      ? ` · mein Gericht aus ${selectedFood.zutaten.map(z => z.n).join(", ")}`
+      : "";
   document.getElementById("portionPreview").textContent = `${Math.round(grams)} ${unit}: ${formatFoodValues(selectedFood, grams)}${source}`;
 }
 
@@ -1316,6 +1334,170 @@ async function addFreeEntry() {
   ["fName", "fGrams", "fKcal", "fProt", "fCO2"].forEach(id => { document.getElementById(id).value = ""; });
   updateFreePreview();
   await addEntry(entry);
+}
+
+// ---------- Eigenes Gericht zusammenstellen ----------
+// Ein Gericht ist ein gemerktes Lebensmittel (src "rezept") mit Zutatenliste.
+// Seine Werte je 100 g ergeben sich aus den Zutaten; eine Portion = Gesamtmenge ÷ Portionen.
+// Gespeichert wird es mit den übrigen eigenen Lebensmitteln (mein-tag-foods) und darum
+// auch gesichert und zwischen den Geräten abgeglichen.
+let dishItems = [];      // [{food, grams}]
+let dishEditing = null;  // nameNorm des Gerichts, das gerade bearbeitet wird
+
+function dishTotals(items) {
+  return items.reduce((t, {food, grams}) => ({
+    g: t.g + grams,
+    k: t.k + food.k100 * grams / 100,
+    p: t.p + food.p100 * grams / 100,
+    c: t.c + food.co2 * grams,
+    est: t.est || !!food.co2est
+  }), {g: 0, k: 0, p: 0, c: 0, est: false});
+}
+
+function dishFlags(items) {
+  const set = new Set();
+  items.forEach(({food}) => String(food.flags || "").replace(/l/g, "").split("").forEach(f => set.add(f)));
+  if (items.some(({food}) => food.group === "milch")) set.add("M");
+  if (items.some(({food}) => food.group === "ei")) set.add("E");
+  if (items.some(({food}) => food.group === "fleisch")) set.add("T");
+  if (items.some(({food}) => food.group === "fisch")) set.add("F");
+  return [...set].join("");
+}
+
+function buildDish(name, items, portionsCount) {
+  const t = dishTotals(items);
+  const total = Math.max(1, t.g);
+  return makeCustomFood({
+    n: name, src: "rezept",
+    k100: t.k / total * 100, p100: t.p / total * 100, co2: t.c / total, co2est: t.est,
+    flags: dishFlags(items), g: Math.round(total / portionsCount),
+    zutaten: items.map(({food, grams}) => ({n: food.n, g: grams})), port: portionsCount
+  });
+}
+
+function dishPortionsCount() {
+  return Math.min(20, Math.max(1, parseInt(document.getElementById("dishPortions").value) || 1));
+}
+
+function renderDishBuilder() {
+  const list = document.getElementById("dishItems");
+  list.innerHTML = dishItems.map(({food, grams}, i) => `
+    <div class="dish-item">
+      <div>
+        <div class="d-name">${escapeHtml(food.n)}</div>
+        <div class="d-meta">${Math.round(food.k100 * grams / 100)} kcal · ${(food.p100 * grams / 100).toFixed(1)} g P · ${Math.round(food.co2 * grams)} g CO₂</div>
+      </div>
+      <input type="number" min="1" step="1" value="${Math.round(grams)}" data-dish-grams="${i}" aria-label="Menge ${escapeHtml(food.n)}">
+      <span class="d-unit">${food.liquid ? "ml" : "g"}</span>
+      <button type="button" class="del" data-dish-remove="${i}" title="Zutat entfernen">×</button>
+    </div>`).join("");
+  updateDishPreview();
+  renderDishList();
+}
+
+function updateDishPreview() {
+  const preview = document.getElementById("dishPreview");
+  const warn = document.getElementById("dishWarn");
+  if (!dishItems.length) {
+    preview.textContent = "Noch keine Zutaten. Suche oben eine Zutat und tippe sie an.";
+    warn.style.display = "none";
+    return;
+  }
+  const t = dishTotals(dishItems);
+  const n = dishPortionsCount();
+  const est = t.est ? "≈ " : "";
+  preview.textContent = `Ganzes Gericht: ${Math.round(t.g)} g · ${Math.round(t.k)} kcal · ${t.p.toFixed(1)} g Protein · ${est}${Math.round(t.c)} g CO₂. ` +
+    `1 Portion (${Math.round(t.g / n)} g): ${Math.round(t.k / n)} kcal · ${(t.p / n).toFixed(1)} g Protein · ${est}${Math.round(t.c / n)} g CO₂.`;
+  const conflicts = foodConflicts({group: "gericht", flags: dishFlags(dishItems)});
+  warn.textContent = conflicts.length ? `Hinweis: ${conflictText(conflicts)}.` : "";
+  warn.style.display = conflicts.length ? "" : "none";
+}
+
+function renderDishResults(query) {
+  const box = document.getElementById("dishResults");
+  const q = String(query || "").trim();
+  if (q.length < 2) { box.style.display = "none"; box.innerHTML = ""; return; }
+  const pool = [...customFoods.filter(f => f.nameNorm !== dishEditing), ...FOODS];
+  const hits = rankFoods(pool, q).slice(0, 6);
+  box.style.display = "";
+  box.innerHTML = hits.length
+    ? hits.map(f => `
+      <div class="food-item" data-dish-add="${escapeHtml(f.n)}">
+        <div>
+          <div class="name">${escapeHtml(f.n)}</div>
+          <div class="meta">je 100 ${f.liquid ? "ml" : "g"}: ${Math.round(f.k100)} kcal · ${f.p100.toFixed(1)} g P · ${Math.round(f.co2 * 100)} g CO₂</div>
+        </div>
+        <div class="add">+</div>
+      </div>`).join("")
+    : '<div class="food-item none"><div><div class="name">Keine passende Zutat</div><div class="meta">Lege sie zuerst unter „Frei eintragen“ mit Werten von der Packung an – dann steht sie hier zur Wahl.</div></div></div>';
+}
+
+function renderDishList() {
+  const box = document.getElementById("dishList");
+  const dishes = customFoods.filter(f => f.src === "rezept");
+  if (!dishes.length) {
+    box.className = "entries empty";
+    box.innerHTML = '<div class="e-empty">Noch keine eigenen Gerichte gespeichert.</div>';
+    return;
+  }
+  box.className = "entries";
+  box.innerHTML = dishes.map(f => `
+    <div class="entry dish-entry">
+      <div>
+        <div class="e-name">${escapeHtml(f.n)}</div>
+        <div class="e-meta">${f.zutaten.length} Zutaten · 1 Portion ${f.g} g: ${Math.round(f.k100 * f.g / 100)} kcal · ${(f.p100 * f.g / 100).toFixed(1)} g P · ${Math.round(f.co2 * f.g)} g CO₂</div>
+      </div>
+      <div class="e-vals">
+        <button type="button" class="btn" data-dish-use="${escapeHtml(f.n)}">Eintragen</button>
+        <button type="button" class="btn ghost" data-dish-edit="${escapeHtml(f.n)}">Bearbeiten</button>
+        <button type="button" class="del" data-dish-delete="${escapeHtml(f.n)}" title="Gericht löschen">×</button>
+      </div>
+    </div>`).join("");
+}
+
+function resetDish(message) {
+  dishItems = [];
+  dishEditing = null;
+  document.getElementById("dishName").value = "";
+  document.getElementById("dishSearch").value = "";
+  document.getElementById("dishPortions").value = 2;
+  document.getElementById("dishStatus").textContent = message || "";
+  renderDishResults("");
+  renderDishBuilder();
+}
+
+function editDish(food) {
+  const missing = [];
+  dishItems = food.zutaten.map(z => {
+    const ingredient = foodByName(z.n);
+    if (!ingredient) missing.push(z.n);
+    return ingredient ? {food: ingredient, grams: z.g} : null;
+  }).filter(Boolean);
+  dishEditing = food.nameNorm;
+  document.getElementById("dishName").value = food.n;
+  document.getElementById("dishPortions").value = food.port || 1;
+  document.getElementById("dishStatus").textContent = missing.length
+    ? `„${food.n}“ wird bearbeitet. Nicht mehr gefunden: ${missing.join(", ")} – bitte neu hinzufügen.`
+    : `„${food.n}“ wird bearbeitet. Ändere Zutaten oder Mengen und speichere dann.`;
+  renderDishBuilder();
+  document.getElementById("dishName").scrollIntoView({behavior: "smooth", block: "center"});
+}
+
+async function saveDish(addPortion) {
+  const status = document.getElementById("dishStatus");
+  let name = document.getElementById("dishName").value.trim();
+  if (!name) { status.textContent = "Bitte gib dem Gericht einen Namen."; return; }
+  if (!dishItems.length) { status.textContent = "Bitte füge mindestens eine Zutat hinzu."; return; }
+  // Gleicher Name wie ein Eintrag der festen Liste? Dann eindeutig machen.
+  if (FOOD_BY_NAME.has(normalizeFoodName(name))) name += " (mein Gericht)";
+  const dish = buildDish(name, dishItems, dishPortionsCount());
+  const replaced = customFoods.some(f => f.nameNorm === dish.nameNorm || f.nameNorm === dishEditing);
+  customFoods = [dish, ...customFoods.filter(f => f.nameNorm !== dish.nameNorm && f.nameNorm !== dishEditing)];
+  persistCustomFoods();
+  renderCategoryChips();
+  renderFoodList(document.getElementById("search").value);
+  if (addPortion) await addEntry(scaleFood(dish, dish.g));
+  resetDish(`„${dish.n}“ ${replaced ? "aktualisiert" : "gespeichert"}${addPortion ? ` und 1 Portion (${dish.g} g) eingetragen` : ""}. Du findest es unter „Aus Liste“.`);
 }
 
 // ---------- Foto (noch ohne automatische Erkennung) ----------
@@ -1485,7 +1667,9 @@ function showTab(tab) {
   document.querySelectorAll(".tab").forEach(x => x.classList.toggle("active", x.dataset.tab === tab));
   document.getElementById("tabSearch").style.display = tab === "search" ? "" : "none";
   document.getElementById("tabFree").style.display = tab === "free" ? "" : "none";
+  document.getElementById("tabDish").style.display = tab === "dish" ? "" : "none";
   document.getElementById("tabPhoto").style.display = tab === "photo" ? "" : "none";
+  if (tab === "dish") renderDishBuilder();
 }
 
 // ---------- Sicherung: Daten als Datei speichern und wieder einlesen ----------
@@ -1715,6 +1899,59 @@ function setupListeners() {
     await savePrefs(prefs);
     renderPrefs();
     render();
+  });
+
+  // Eigenes Gericht
+  document.getElementById("dishSearch").addEventListener("input", e => renderDishResults(e.target.value));
+  document.getElementById("dishResults").addEventListener("click", e => {
+    const item = e.target.closest("[data-dish-add]");
+    const food = item ? foodByName(item.dataset.dishAdd) : null;
+    if (!food) return;
+    const existing = dishItems.find(x => x.food.nameNorm === food.nameNorm);
+    if (existing) existing.grams += food.g;
+    else dishItems.push({food, grams: food.g});
+    if (!dishEditing) document.getElementById("dishStatus").textContent = ""; // alte Meldung ausblenden
+    document.getElementById("dishSearch").value = "";
+    renderDishResults("");
+    renderDishBuilder();
+    document.getElementById("dishSearch").focus();
+  });
+  document.getElementById("dishItems").addEventListener("input", e => {
+    const input = e.target.closest("[data-dish-grams]");
+    if (!input) return;
+    const item = dishItems[parseInt(input.dataset.dishGrams)];
+    if (item) item.grams = Math.max(0, parseFloat(input.value) || 0);
+    updateDishPreview();
+  });
+  document.getElementById("dishItems").addEventListener("change", e => {
+    if (e.target.closest("[data-dish-grams]")) renderDishBuilder();
+  });
+  document.getElementById("dishItems").addEventListener("click", e => {
+    const button = e.target.closest("[data-dish-remove]");
+    if (!button) return;
+    dishItems.splice(parseInt(button.dataset.dishRemove), 1);
+    renderDishBuilder();
+  });
+  document.getElementById("dishPortions").addEventListener("input", updateDishPreview);
+  document.getElementById("dishSave").addEventListener("click", () => saveDish(false));
+  document.getElementById("dishSaveAdd").addEventListener("click", () => saveDish(true));
+  document.getElementById("dishReset").addEventListener("click", () => resetDish(""));
+  document.getElementById("dishList").addEventListener("click", e => {
+    const use = e.target.closest("[data-dish-use]");
+    const edit = e.target.closest("[data-dish-edit]");
+    const del = e.target.closest("[data-dish-delete]");
+    if (use) { const f = foodByName(use.dataset.dishUse); if (f) openFoodInList(f); }
+    if (edit) { const f = foodByName(edit.dataset.dishEdit); if (f) editDish(f); }
+    if (del) {
+      const f = foodByName(del.dataset.dishDelete);
+      if (!f || !confirm(`„${f.n}“ aus deinen Gerichten löschen? Bereits eingetragene Portionen bleiben im Tagebuch.`)) return;
+      forgetFood(f);
+      if (dishEditing === f.nameNorm) resetDish("");
+      document.getElementById("dishStatus").textContent = `„${f.n}“ gelöscht.`;
+      renderCategoryChips();
+      renderFoodList(document.getElementById("search").value);
+      renderDishList();
+    }
   });
 
   // Foto

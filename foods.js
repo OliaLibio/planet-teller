@@ -247,6 +247,11 @@ const FOOD_ROWS = [
   ["Grüne Bohnen", "gemuese", 30, 1.9, 0.53, "150", "", "bohnen prinzessbohnen"],
   ["Mais (Dose)", "gemuese", 80, 2.7, 1, "100", "", "zuckermais"],
   ["Tomaten (Dose) / Passata", "gemuese", 25, 1.3, 1.3, "200", "", "tomatensauce gehackte tomaten"],
+  ["Bananenblüte (Dose)", "gemuese", 25, 1.5, 1.0, "100;1 Dose (abgetropft)=230", "", "bananenbluete bananenblueten banana blossom jackfruit"],
+  ["Knoblauch", "gemuese", 150, 6, 0.6, "1 Zehe=4;10", "", "knoblauchzehe"],
+  ["Ingwer", "gemuese", 80, 1.8, 0.9, "1 Stück=10", "", "ingwerwurzel"],
+  ["Kräuter, frisch", "gemuese", 40, 3, 0.8, "1 Handvoll=10", "", "petersilie koriander basilikum schnittlauch kraeuter"],
+  ["Chili / Peperoni", "gemuese", 40, 2, 0.9, "1 Stück=10", "", "chilischote peperoni scharf"],
 
   // ---------------- Obst ----------------
   ["Apfel", "obst", 52.8, 0, 0.43, "1 Stück=180", "", "aepfel"],
@@ -424,6 +429,12 @@ const FOOD_ROWS = [
 
   // ---------------- Sonstiges ----------------
   ["Ketchup", "sonst", 100, 1.2, 1.5, "1 EL=15", "", "tomatenketchup sauce"],
+  ["Currypaste", "sonst", 100, 2, 1.5, "1 EL=15", "", "rote currypaste gruene currypaste curry thai"],
+  ["Gewürze, getrocknet", "sonst", 300, 10, 2, "1 TL=3", "", "curry kurkuma kreuzkuemmel paprikapulver gewuerzmischung salz pfeffer"],
+  ["Gemüsebrühe", "sonst", 5, 0.3, 0.2, "200", "l", "bruehe gemuesebruehe suppe fond"],
+  ["Sojasauce", "sonst", 60, 8, 1.2, "1 EL=15", "GSl", "sojasosse shoyu tamari"],
+  ["Weizenmehl", "getreide", 340, 10, 1.1, "1 EL=10;100", "G", "mehl type 405"],
+  ["Kokosöl", "nuesse", 900, 0, 2.5, "1 EL=10", "", "kokosfett oel"],
   ["Pesto", "sonst", 450, 5, 3.5, "1 EL=15", "MN", "basilikum sauce"],
   ["Hafer-Kochcreme", "sonst", 150, 1, 1.2, "1 EL=15;50", "Gl", "hafersahne hafer cuisine pflanzliche sahne vegan"],
   ["Veganer Käse", "sonst", 280, 0.5, 2, "1 Scheibe=20", "", "pflanzlicher kaese kaeseersatz"],
