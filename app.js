@@ -1304,10 +1304,42 @@ function showToast(text) {
   toastTimer = setTimeout(() => toast.classList.remove("show"), 3500);
 }
 
+// ---------- Menü: immer nur einen Bereich zeigen ----------
+// Die Ringe und das Datum bleiben oben; darunter steht nur der gewählte Bereich.
+const VIEW_KEY = "pt-bereich";
+const VIEWS = ["heute", "kochen", "entdecken", "woche", "auswertung", "profil", "einstellungen"];
+let currentView = "heute";
+
+function showView(view, scroll) {
+  if (!VIEWS.includes(view)) view = "heute";
+  currentView = view;
+  document.querySelectorAll("[data-bereich]").forEach(el => { el.style.display = el.dataset.bereich === view ? "" : "none"; });
+  if (view === "einstellungen") document.querySelectorAll('details[data-bereich="einstellungen"]').forEach(d => { d.open = true; });
+  document.querySelectorAll("#menuPanel [data-view-go]").forEach(b => b.classList.toggle("current", b.dataset.viewGo === view));
+  document.querySelector('#quickbar [data-go="teller"]').classList.toggle("active-view", view === "heute");
+  try { localStorage.setItem(VIEW_KEY, view); } catch (e) { /* ohne Merken weiter */ }
+  if (view === "einstellungen") renderBackupInfo();
+  if (scroll) {
+    const rings = document.querySelector(".rings");
+    const top = rings ? rings.getBoundingClientRect().bottom + window.scrollY - 70 : 0;
+    window.scrollTo({top: Math.max(0, top), behavior: "smooth"});
+  }
+}
+
+function toggleMenu(open) {
+  const panel = document.getElementById("menuPanel");
+  const button = document.getElementById("menuToggle");
+  const show = open === undefined ? panel.hidden : open;
+  panel.hidden = !show;
+  button.setAttribute("aria-expanded", String(show));
+}
+
 function goTo(target) {
   const ids = {eintragen: "inputSection", gericht: "inputSection", teller: "tellerSection", woche: "weeklySection"};
   const section = document.getElementById(ids[target]);
   if (!section) return;
+  toggleMenu(false);
+  showView(target === "woche" ? "woche" : "heute");
   if (target === "eintragen") showTab("search");
   if (target === "gericht") showTab("dish");
   section.scrollIntoView({behavior: "smooth", block: "start"});
@@ -1620,7 +1652,7 @@ function updateCookHint() {
   button.disabled = !ready || cookBusy;
   hint.textContent = ready
     ? "Dafür gehen dein Vorrat, dein Wunsch, deine offenen Tageswerte, Ernährungsweise, Allergien, Vorlieben und die Namen deiner häufigsten Lebensmittel an Anthropic (Claude) – nicht deine Gesundheitsnotiz oder Körperdaten. Kosten: etwa 5–8 Cent pro Vorschlag."
-    : "Für die Rezeptvorschläge bitte unten bei „Mac & Handy abgleichen“ anmelden.";
+    : "Für die Rezeptvorschläge bitte im Menü unter „Einstellungen“ → „Mac & Handy abgleichen“ anmelden.";
 }
 
 function cookContext() {
@@ -1772,7 +1804,7 @@ function updatePhotoButton() {
   button.disabled = !photoFile || !photoReady() || photoBusy;
   document.getElementById("photoClear").style.display = photoFile && !photoBusy ? "" : "none";
   if (!photoReady()) {
-    hint.textContent = "Für die KI-Erkennung bitte unten bei „Mac & Handy abgleichen“ anmelden. Bis dahin kannst du selbst aus der Liste wählen.";
+    hint.textContent = "Für die KI-Erkennung bitte im Menü unter „Einstellungen“ → „Mac & Handy abgleichen“ anmelden. Bis dahin kannst du selbst aus der Liste wählen.";
   } else {
     hint.textContent = "Die KI schlägt Lebensmittel und Mengen vor – du prüfst und bestätigst. Dafür geht das Foto einmalig an Anthropic (Claude) und wird nicht gespeichert. Kosten: etwa 3–5 Cent pro Foto.";
   }
@@ -2084,6 +2116,7 @@ function openFoodInList(food) {
 }
 
 function showTab(tab) {
+  if (currentView !== "heute") showView("heute");
   document.querySelectorAll(".tab").forEach(x => x.classList.toggle("active", x.dataset.tab === tab));
   document.getElementById("tabSearch").style.display = tab === "search" ? "" : "none";
   document.getElementById("tabFree").style.display = tab === "free" ? "" : "none";
@@ -2321,6 +2354,22 @@ function setupListeners() {
     renderPrefs();
     render();
   });
+
+  // Menü
+  document.getElementById("menuToggle").addEventListener("click", () => toggleMenu());
+  document.getElementById("menuPanel").addEventListener("click", e => {
+    const item = e.target.closest("[data-view-go]");
+    if (!item) return;
+    toggleMenu(false);
+    showView(item.dataset.viewGo, true);
+  });
+  document.addEventListener("click", e => {
+    if (!e.target.closest("#quickbar")) toggleMenu(false);
+  });
+  document.addEventListener("keydown", e => { if (e.key === "Escape") toggleMenu(false); });
+  let savedView = "heute";
+  try { savedView = localStorage.getItem(VIEW_KEY) || "heute"; } catch (e) { /* Standard */ }
+  showView(savedView);
 
   // Schnellleiste oben und „Ansehen“ in der Bestätigung
   document.addEventListener("click", e => {

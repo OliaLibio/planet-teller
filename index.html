@@ -308,6 +308,20 @@
   .cook-card .cook-values { font-size: 12px; color: var(--leaf); }
   .cook-card .cook-warn { color: var(--rose); }
   .cook-error { color: var(--rose); font-size: 13px; }
+  /* Menü */
+  .quickbar { position: sticky; }
+  .quickbar .qb-menu { flex: 1.3; font-weight: 600; color: var(--ink); }
+  .quickbar .qb-menu[aria-expanded="true"] { background: var(--ink); color: #fffdf7; border-color: var(--ink); }
+  .quickbar .active-view { border-color: var(--leaf); color: var(--leaf); font-weight: 600; }
+  .menu-panel { position: absolute; left: 6px; right: 6px; top: calc(100% + 6px); z-index: 25; display: flex; flex-direction: column; gap: 4px; padding: 8px; background: var(--bg-card); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 16px 40px rgba(34,48,43,0.18); max-height: calc(100vh - 120px); overflow-y: auto; }
+  .menu-panel[hidden] { display: none; }
+  .menu-panel button { flex: none; display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 8px 12px; text-align: left; border: 1px solid transparent; border-radius: 12px; background: none; }
+  .menu-panel button:hover { background: var(--bg); border-color: var(--line-soft); }
+  .menu-panel button.current { background: rgba(47,111,79,0.08); border-color: var(--leaf-soft); }
+  .menu-panel .mi { font-size: 22px; width: 30px; text-align: center; }
+  .menu-panel strong { display: block; font-size: 14px; color: var(--ink); font-weight: 600; }
+  .menu-panel small { display: block; font-size: 12px; color: var(--ink-faint); margin-top: 1px; }
+  .view-title { display: none; }
   .notice { margin-bottom: 18px; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(199,95,104,0.35); background: var(--bg-card); font-size: 12px; color: var(--rose); line-height: 1.45; }
 
   @media (max-width: 480px) {
@@ -361,14 +375,23 @@
     <button type="button" class="btn" id="updateNow">Jetzt aktualisieren</button>
   </div>
 
-  <div class="notice" id="storageWarning" style="display:none;">Dieser Browser lässt das Speichern gerade nicht zu. Deine Einträge bleiben nur, solange die Seite offen ist — lade am besten unten eine Sicherung herunter.</div>
+  <div class="notice" id="storageWarning" style="display:none;">Dieser Browser lässt das Speichern gerade nicht zu. Deine Einträge bleiben nur, solange die Seite offen ist — lade am besten im Menü unter „Einstellungen“ eine Sicherung herunter.</div>
 
-  <nav class="quickbar" id="quickbar" aria-label="Schnellzugriff">
+  <nav class="quickbar" id="quickbar" aria-label="Navigation">
+    <button type="button" class="qb-menu" id="menuToggle" aria-expanded="false" aria-controls="menuPanel">☰ Menü</button>
     <button type="button" class="qb-main" data-go="eintragen">＋ Essen eintragen</button>
-    <button type="button" data-go="gericht">Gericht</button>
     <button type="button" data-go="teller">Heute</button>
-    <button type="button" data-go="woche">Woche</button>
+    <div class="menu-panel" id="menuPanel" hidden>
+      <button type="button" data-view-go="heute"><span class="mi">🍽️</span><span><strong>Heute</strong><small>Essen eintragen &amp; mein Teller</small></span></button>
+      <button type="button" data-view-go="kochen"><span class="mi">🍳</span><span><strong>Was koche ich heute?</strong><small>Rezepte aus deinem Vorrat</small></span></button>
+      <button type="button" data-view-go="entdecken"><span class="mi">🌱</span><span><strong>Neues entdecken</strong><small>Ideen &amp; Rezepte</small></span></button>
+      <button type="button" data-view-go="woche"><span class="mi">📅</span><span><strong>Meine Woche</strong><small>Wöchentliche Ration</small></span></button>
+      <button type="button" data-view-go="auswertung"><span class="mi">📈</span><span><strong>Auswertung</strong><small>Muster der letzten Wochen</small></span></button>
+      <button type="button" data-view-go="profil"><span class="mi">🙂</span><span><strong>Mein Körper &amp; Ziele</strong><small>Profil, Allergien, Ernährungsweise</small></span></button>
+      <button type="button" data-view-go="einstellungen"><span class="mi">⚙️</span><span><strong>Einstellungen</strong><small>Tagesziele, Mac &amp; Handy, Sicherung</small></span></button>
+    </div>
   </nav>
+  <div class="view-title" id="viewTitle"></div>
 
   <div class="rings">
     <div class="ring-card kcal">
@@ -400,7 +423,7 @@
     </div>
   </div>
 
-  <div class="section highlight" id="inputSection">
+  <div class="section highlight" id="inputSection" data-bereich="heute">
     <h2>Was hast du <span class="accent">gegessen</span>?</h2>
     <div class="tabs">
       <button class="tab active" data-tab="search">Aus Liste</button>
@@ -493,7 +516,7 @@
     </div>
   </div>
 
-  <div class="section" id="tellerSection">
+  <div class="section" id="tellerSection" data-bereich="heute">
     <h2>Heute auf meinem <span class="accent">Teller</span></h2>
     <div class="entries" id="entries"></div>
     <div class="summary" id="summary"></div>
@@ -509,7 +532,7 @@
     </div>
   </div>
 
-  <div class="section" id="cookSection">
+  <div class="section" id="cookSection" data-bereich="kochen">
     <h2>Was koche ich <span class="accent">heute</span>?</h2>
     <p class="lead">Schreib auf, was du zu Hause hast. Die KI schlägt dir zwei Rezepte vor, die zu deinem offenen Bedarf, deinen Allergien, deiner Ernährungsweise und deinem CO₂-Budget passen.</p>
     <div class="free-input">
@@ -521,21 +544,21 @@
     <div class="cook-results" id="cookResults"></div>
   </div>
 
-  <div class="section" id="discoverSection">
+  <div class="section" id="discoverSection" data-bereich="entdecken">
     <h2>Neues <span class="accent">entdecken</span></h2>
     <p class="lead">Meist isst man immer wieder das Gleiche. Hier stehen jeden Tag drei Ideen, die du in den letzten Wochen nicht eingetragen hast — leicht für die Erde und passend zu deinen Angaben oben.</p>
     <div class="analysis-grid" id="discoverGrid"></div>
     <button class="btn ghost" id="discoverMore" style="margin-top:12px;">Andere Ideen zeigen</button>
   </div>
 
-  <div class="section" id="weeklySection">
+  <div class="section" id="weeklySection" data-bereich="woche">
     <h2>Meine wöchentliche <span class="accent">Ration</span></h2>
     <p class="lead">Wähle, was du gerne isst. Daraus entsteht eine Wochenorientierung in Gramm: nicht als Verbot, sondern als ruhiger Rahmen. Fertige Gerichte, Getränke und Süßes zählen hier nicht mit.</p>
     <div class="pref-grid" id="prefGrid"></div>
     <div class="weekly-grid" id="weeklyPlan"></div>
   </div>
 
-  <div class="section" id="analysisSection">
+  <div class="section" id="analysisSection" data-bereich="auswertung">
     <h2>Analyse nach ein paar <span class="accent">Wochen</span></h2>
     <p class="lead">Aus deinen gespeicherten Tagen erkennt die App nach festen Regeln Muster und schlägt Lebensmittel vor, die Bedarf, Vielfalt und CO₂-Budget besser zusammenbringen. Alles bleibt auf deinem Gerät.</p>
     <div class="analysis-toolbar">
@@ -545,7 +568,7 @@
     <div class="analysis-grid" id="analysisGrid"></div>
   </div>
 
-  <div class="section" id="profileSection">
+  <div class="section" id="profileSection" data-bereich="profil">
     <h2>Mein Körper, mein <span class="accent">Planet-Budget</span></h2>
     <p class="lead">Die App soll nicht weniger Essen erzwingen, sondern passend essen lernen: genug Energie, genug Eiweiß, und Lebensmittel so wählen, dass die Erde mitatmen kann.</p>
     <div class="profile-grid">
@@ -613,7 +636,7 @@
     <div class="calc-note" id="calcNote">Ändere deine Körperdaten und drücke den Knopf. Die Ringe oben und die Wochenration werden danach aktualisiert.</div>
   </div>
 
-  <details class="settings">
+  <details class="settings" id="targetsDetails" data-bereich="einstellungen">
     <summary>Meine Tagesziele anpassen</summary>
     <div class="targets">
       <label>Kalorien<input type="number" id="tKcalIn" value="1800"></label>
@@ -623,12 +646,12 @@
     <p id="targetsNote" style="margin-top:14px; font-size:12px; color:var(--ink-faint); font-style:italic; line-height:1.5;"></p>
   </details>
 
-  <details class="settings" id="syncDetails">
+  <details class="settings" id="syncDetails" data-bereich="einstellungen">
     <summary>Mac &amp; Handy abgleichen</summary>
     <div class="backup-box" id="syncBox"></div>
   </details>
 
-  <details class="settings" id="backupDetails">
+  <details class="settings" id="backupDetails" data-bereich="einstellungen">
     <summary>Daten sichern &amp; übertragen</summary>
     <div class="backup-box">
       <div>Dein Tagebuch liegt nur in diesem Browser. Mit einer Sicherung bekommst du alles als Datei: Tage, Profil, Ziele, Vorlieben und gemerkte Lebensmittel. Die Datei kannst du aufbewahren oder in einem anderen Browser oder auf dem Handy wieder einlesen.</div>
@@ -661,7 +684,7 @@
 
 <script src="./foods.js?v=9"></script>
 <script src="./recipes.js?v=9"></script>
-<script src="./app.js?v=17"></script>
+<script src="./app.js?v=20"></script>
 <script src="./sync.js?v=8"></script>
 </body>
 </html>
