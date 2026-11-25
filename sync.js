@@ -269,6 +269,7 @@ const PlanetSync = {
   // ---- Anzeige ----
   render() {
     if (typeof updatePhotoButton === "function") updatePhotoButton(); // Fotoerkennung braucht die Anmeldung
+    if (typeof updateCookHint === "function") updateCookHint();     // Rezeptvorschläge ebenso
     const box = document.getElementById("syncBox");
     const badge = document.getElementById("syncBadge");
     if (!box) return;

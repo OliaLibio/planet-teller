@@ -280,7 +280,7 @@
   .app-version { margin-top: 6px; font-family: 'Inter', sans-serif; font-style: normal; font-size: 10px; letter-spacing: 0.06em; color: var(--ink-faint); }
   .photo-actions .hint { font-size: 12px; color: var(--ink-faint); font-style: italic; line-height: 1.45; }
   .photo-note { width: 100%; padding: 10px 12px; background: var(--bg-card); border: 1px solid var(--line); border-radius: 10px; font-size: 13px; }
-  .photo-actions .btn:disabled { opacity: 0.5; cursor: default; }
+  .btn:disabled, .btn:disabled:hover { opacity: 0.5; cursor: default; background: var(--leaf); }
   .photo-result { margin-top: 14px; padding: 14px; background: var(--bg-card); border: 1px solid var(--line-soft); border-radius: 12px; display: flex; flex-direction: column; gap: 10px; }
   .photo-result .pr-head { font-size: 13px; color: var(--ink); line-height: 1.45; }
   .photo-result .pr-meta { font-size: 11px; color: var(--ink-faint); }
@@ -297,6 +297,17 @@
   .photo-manual .guess-row { margin-top: 8px; }
   .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--line); border-top-color: var(--leaf); border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: -2px; margin-right: 6px; }
   @keyframes spin { to { transform: rotate(360deg); } }
+  .pantry { width: 100%; min-height: 84px; padding: 11px 13px; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; font-family: 'Inter', sans-serif; font-size: 14px; color: var(--ink); resize: vertical; outline: none; line-height: 1.4; }
+  .pantry:focus { border-color: var(--leaf-soft); }
+  .cook-results { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }
+  .cook-card { background: var(--bg); border: 1px solid var(--line-soft); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: var(--ink-soft); line-height: 1.5; }
+  .cook-card h3 { font-family: 'Fraunces', serif; font-weight: 500; font-size: 19px; color: var(--ink); }
+  .cook-card .cook-meta { font-size: 11px; color: var(--ink-faint); }
+  .cook-card ul, .cook-card ol { padding-left: 18px; display: flex; flex-direction: column; gap: 3px; }
+  .cook-card .buy { color: var(--earth); font-weight: 500; }
+  .cook-card .cook-values { font-size: 12px; color: var(--leaf); }
+  .cook-card .cook-warn { color: var(--rose); }
+  .cook-error { color: var(--rose); font-size: 13px; }
   .notice { margin-bottom: 18px; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(199,95,104,0.35); background: var(--bg-card); font-size: 12px; color: var(--rose); line-height: 1.45; }
 
   @media (max-width: 480px) {
@@ -498,6 +509,18 @@
     </div>
   </div>
 
+  <div class="section" id="cookSection">
+    <h2>Was koche ich <span class="accent">heute</span>?</h2>
+    <p class="lead">Schreib auf, was du zu Hause hast. Die KI schlägt dir zwei Rezepte vor, die zu deinem offenen Bedarf, deinen Allergien, deiner Ernährungsweise und deinem CO₂-Budget passen.</p>
+    <div class="free-input">
+      <textarea id="pantryIn" class="pantry" rows="3" maxlength="1500" placeholder="z. B. Kichererbsen (Dose), Reis, Zwiebeln, Spinat, Tomaten, Feta, Eier …"></textarea>
+      <input type="text" id="cookWish" maxlength="200" placeholder="Wunsch (optional): schnell, warm, ohne Ofen, für 2 Personen …">
+      <div class="backup-row"><button class="btn" id="cookGo">Rezepte vorschlagen (KI)</button></div>
+      <div class="hint" id="cookHint"></div>
+    </div>
+    <div class="cook-results" id="cookResults"></div>
+  </div>
+
   <div class="section" id="discoverSection">
     <h2>Neues <span class="accent">entdecken</span></h2>
     <p class="lead">Meist isst man immer wieder das Gleiche. Hier stehen jeden Tag drei Ideen, die du in den letzten Wochen nicht eingetragen hast — leicht für die Erde und passend zu deinen Angaben oben.</p>
@@ -638,7 +661,7 @@
 
 <script src="./foods.js?v=9"></script>
 <script src="./recipes.js?v=9"></script>
-<script src="./app.js?v=15"></script>
-<script src="./sync.js?v=7"></script>
+<script src="./app.js?v=17"></script>
+<script src="./sync.js?v=8"></script>
 </body>
 </html>

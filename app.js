@@ -1604,6 +1604,145 @@ function adoptRecipe(name) {
   document.getElementById("inputSection").scrollIntoView({behavior: "smooth", block: "start"});
 }
 
+// ---------- Was koche ich heute? (KI-Rezepte aus dem Vorrat) ----------
+// Geschickt werden: Vorrat, Wunsch, offene Tageswerte, Ernährungsweise, Allergien, Vorlieben,
+// Lücken der Wochenration und die Namen der zuletzt häufigsten Lebensmittel.
+// Nicht geschickt werden: Gesundheitsnotiz, Körperdaten, einzelne Tagebucheinträge.
+const PANTRY_KEY = "mein-tag-vorrat";
+let cookRecipes = []; // [{titel, warum, zeit, portionen, items: [{food, grams, anzeige, vorhanden}], schritte, dish}]
+let cookBusy = false;
+
+function updateCookHint() {
+  const hint = document.getElementById("cookHint");
+  const button = document.getElementById("cookGo");
+  if (!hint) return;
+  const ready = window.PlanetSync && PlanetSync.client && PlanetSync.user;
+  button.disabled = !ready || cookBusy;
+  hint.textContent = ready
+    ? "Dafür gehen dein Vorrat, dein Wunsch, deine offenen Tageswerte, Ernährungsweise, Allergien, Vorlieben und die Namen deiner häufigsten Lebensmittel an Anthropic (Claude) – nicht deine Gesundheitsnotiz oder Körperdaten. Kosten: etwa 5–8 Cent pro Vorschlag."
+    : "Für die Rezeptvorschläge bitte unten bei „Mac & Handy abgleichen“ anmelden.";
+}
+
+function cookContext() {
+  const t = dayTotals();
+  const weekly = weeklyTotals();
+  const dayOfWeek = (new Date(currentDate).getDay() + 6) % 7 + 1; // Montag = 1
+  const gaps = FOOD_GROUPS
+    // Fleisch und Fisch nicht als „Lücke“ melden – die App soll dazu nicht extra anregen.
+    .filter(g => groupAllowed(g.id) && !["fleisch", "fisch"].includes(g.id) &&
+      (weekly[g.id] || 0) < weeklyTargetFor(g) * dayOfWeek / 7 * 0.6)
+    .map(g => g.label);
+  const often = Object.entries(freqMap).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([name]) => name);
+  const diets = {alles: "isst alles", pescetarisch: "kein Fleisch, aber Fisch", vegetarisch: "vegetarisch", vegan: "vegan"};
+  return {
+    offen_kcal_heute: Math.max(0, Math.round(targets.kcal - t.k)),
+    offen_protein_g_heute: Math.max(0, Math.round(targets.prot - t.p)),
+    co2_rest_g_heute: Math.round(targets.co2 - t.c),
+    tagesziele: {kcal: targets.kcal, protein_g: targets.prot, co2_g: targets.co2},
+    ernaehrungsweise: diets[profile.diet] || "isst alles",
+    meiden_allergien: (profile.avoid || []).map(id => (ALLERGENS.find(a => a.id === id) || {}).label).filter(Boolean),
+    vorlieben: prefs.map(groupLabel),
+    luecken_diese_woche: gaps,
+    zuletzt_oft_gegessen: often
+  };
+}
+
+async function suggestRecipes() {
+  const box = document.getElementById("cookResults");
+  const pantryText = document.getElementById("pantryIn").value.trim();
+  if (pantryText.length < 3) {
+    box.innerHTML = '<div class="cook-error">Bitte schreib kurz auf, was du zu Hause hast.</div>';
+    return;
+  }
+  if (cookBusy || !(window.PlanetSync && PlanetSync.user)) return;
+  writeStoredValue(PANTRY_KEY, JSON.stringify(pantryText));
+  cookBusy = true;
+  updateCookHint();
+  box.innerHTML = '<div class="pr-head"><span class="spinner"></span>Die KI überlegt sich zwei Rezepte für dich … (dauert meist 20–40 Sekunden)</div>';
+  try {
+    const namen = [...new Set([...FOODS, ...customFoods.filter(f => f.src !== "rezept")].map(f => f.n))];
+    const {data, error} = await PlanetSync.client.functions.invoke("rezept-vorschlag", {
+      body: {vorrat: pantryText, wunsch: document.getElementById("cookWish").value.trim(), kontext: cookContext(), namen}
+    });
+    if (error) {
+      let message = "Die Rezeptvorschläge sind gerade nicht erreichbar.";
+      try { const detail = await error.context.json(); if (detail && detail.fehler) message = detail.fehler; } catch (e) { /* Standardtext */ }
+      throw new Error(message);
+    }
+    cookRecipes = (data.rezepte || []).map(r => {
+      const items = (r.zutaten || []).map(z => {
+        const food = foodByName(z.name) || makeCustomFood({
+          n: String(z.name || "Zutat"), group: inferGroup(z.name), k100: num(z.kcal_pro_100g), p100: num(z.protein_pro_100g),
+          co2: estimateCO2PerKg(z.name), co2est: true, g: 100, src: "eigen"
+        });
+        return {food, grams: Math.max(1, Math.round(num(z.gramm) || 100)), anzeige: String(z.anzeige || ""), vorhanden: z.vorhanden !== false, neu: !foodByName(z.name)};
+      });
+      const portionen = Math.max(1, Math.round(num(r.portionen) || 2));
+      return {titel: String(r.titel || "Rezept"), warum: String(r.warum || ""), zeit: Math.round(num(r.zeit_minuten)), portionen,
+              items, schritte: (r.schritte || []).map(String), dish: buildDish(String(r.titel || "Rezept"), items, portionen)};
+    });
+    renderCookRecipes(data);
+  } catch (err) {
+    box.innerHTML = `<div class="cook-error">${escapeHtml(err.message || String(err))}</div>`;
+  } finally {
+    cookBusy = false;
+    updateCookHint();
+  }
+}
+
+function renderCookRecipes(data) {
+  const box = document.getElementById("cookResults");
+  if (!cookRecipes.length) {
+    box.innerHTML = '<div class="cook-error">Dazu ist der KI nichts eingefallen. Ergänze deinen Vorrat oder versuche einen anderen Wunsch.</div>';
+    return;
+  }
+  const cost = num(data.kosten_usd);
+  box.innerHTML = cookRecipes.map((r, i) => {
+    const d = r.dish;
+    const conflicts = foodConflicts(d);
+    const missing = r.items.filter(item => !item.vorhanden);
+    return `
+    <div class="cook-card">
+      <h3>${escapeHtml(r.titel)}</h3>
+      <div class="cook-meta">${r.zeit ? `ca. ${r.zeit} Min. · ` : ""}${r.portionen} ${r.portionen === 1 ? "Portion" : "Portionen"}${missing.length ? ` · ${missing.length} Zutat${missing.length === 1 ? "" : "en"} einkaufen` : " · alles im Vorrat"}</div>
+      ${r.warum ? `<div>${escapeHtml(r.warum)}</div>` : ""}
+      <div class="recipe-head">Zutaten</div>
+      <ul>${r.items.map(item => `<li>${escapeHtml(item.anzeige || item.food.n)} <span class="recipe-amount">(${item.grams} ${item.food.liquid ? "ml" : "g"})</span>${item.vorhanden ? "" : ' <span class="buy">– einkaufen</span>'}</li>`).join("")}</ul>
+      <div class="recipe-head">So geht's</div>
+      <ol>${r.schritte.map(step => `<li>${escapeHtml(step)}</li>`).join("")}</ol>
+      <div class="cook-values">1 Portion (${d.g} g): ${Math.round(d.k100 * d.g / 100)} kcal · ${(d.p100 * d.g / 100).toFixed(0)} g Protein · ${d.co2est ? "≈ " : ""}${Math.round(d.co2 * d.g)} g CO₂</div>
+      ${conflicts.length ? `<div class="cook-warn">Achtung: ${escapeHtml(conflictText(conflicts))} – bitte prüfen.</div>` : ""}
+      <div class="backup-row">
+        <button type="button" class="btn" data-cook-add="${i}">1 Portion eintragen</button>
+        <button type="button" class="btn ghost" data-cook-adopt="${i}">Als mein Gericht übernehmen</button>
+      </div>
+    </div>`;
+  }).join("") +
+  `<div class="pr-meta">${escapeHtml(data.hinweis || "")}${cost ? ` Dieser Vorschlag kostete etwa ${(cost * 100).toFixed(1).replace(".", ",")} US-Cent.` : ""} Werte sind aus den Zutaten berechnet; bei Zutaten außerhalb deiner Liste hat die KI geschätzt.</div>`;
+}
+
+async function addCookPortion(index) {
+  const r = cookRecipes[index];
+  if (!r) return;
+  await addEntry({...scaleFood(r.dish, r.dish.g), src: "rezept-ki"});
+}
+
+// Lädt den KI-Vorschlag in „Gericht“; dort lässt er sich anpassen und speichern.
+// Zutaten, die nicht in der Liste stehen, werden als eigene Lebensmittel gemerkt.
+function adoptCookRecipe(index) {
+  const r = cookRecipes[index];
+  if (!r) return;
+  r.items.filter(item => item.neu).forEach(item => rememberFood(item.food));
+  dishItems = r.items.map(item => ({food: foodByName(item.food.n) || item.food, grams: item.grams}));
+  dishEditing = null;
+  document.getElementById("dishName").value = r.titel;
+  document.getElementById("dishPortions").value = r.portionen;
+  renderCategoryChips();
+  showTab("dish");
+  document.getElementById("dishStatus").textContent = "Rezept übernommen. Passe Mengen an und speichere es – danach findest du es unter „Aus Liste“.";
+  document.getElementById("inputSection").scrollIntoView({behavior: "smooth", block: "start"});
+}
+
 // ---------- Foto mit KI-Erkennung ----------
 // Ablauf: Foto wählen → verkleinern → an die Supabase-Funktion „foto-erkennung“ schicken
 // (nur angemeldet) → Vorschläge prüfen → bestätigen. Eingetragen wird nur, was angehakt ist.
@@ -2188,6 +2327,19 @@ function setupListeners() {
     const button = e.target.closest("[data-go]");
     if (button) goTo(button.dataset.go);
   });
+
+  // Was koche ich heute?
+  const pantry = document.getElementById("pantryIn");
+  pantry.value = readJson(PANTRY_KEY, "") || "";
+  pantry.addEventListener("change", () => writeStoredValue(PANTRY_KEY, JSON.stringify(pantry.value.trim())));
+  document.getElementById("cookGo").addEventListener("click", suggestRecipes);
+  document.getElementById("cookResults").addEventListener("click", async e => {
+    const add = e.target.closest("[data-cook-add]");
+    const adopt = e.target.closest("[data-cook-adopt]");
+    if (add) await addCookPortion(parseInt(add.dataset.cookAdd));
+    if (adopt) adoptCookRecipe(parseInt(adopt.dataset.cookAdopt));
+  });
+  updateCookHint();
 
   // Rezept als eigenes Gericht übernehmen (Knopf steht in mehreren Bereichen)
   document.addEventListener("click", e => {
