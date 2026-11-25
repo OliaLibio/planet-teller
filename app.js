@@ -1651,7 +1651,7 @@ function updateCookHint() {
   const ready = window.PlanetSync && PlanetSync.client && PlanetSync.user;
   button.disabled = !ready || cookBusy;
   hint.textContent = ready
-    ? "Dafür gehen dein Vorrat, dein Wunsch, deine offenen Tageswerte, Ernährungsweise, Allergien, Vorlieben und die Namen deiner häufigsten Lebensmittel an Anthropic (Claude) – nicht deine Gesundheitsnotiz oder Körperdaten. Kosten: etwa 5–8 Cent pro Vorschlag."
+    ? "Dafür gehen dein Vorrat, dein Wunsch, deine offenen Tageswerte, Ernährungsweise, Allergien, Vorlieben und die Namen deiner häufigsten Lebensmittel an Anthropic (Claude) – nicht deine Gesundheitsnotiz oder Körperdaten. Kosten: etwa 2–4 Cent pro Vorschlag."
     : "Für die Rezeptvorschläge bitte im Menü unter „Einstellungen“ → „Mac & Handy abgleichen“ anmelden.";
 }
 

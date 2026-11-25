@@ -11,9 +11,10 @@ import Anthropic from "npm:@anthropic-ai/sdk@1.7.0";
 import { zodOutputFormat } from "npm:@anthropic-ai/sdk@1.7.0/helpers/zod";
 import { z } from "npm:zod@4.6.7/v4";
 
-const MODEL = "claude-opus-5-5";
-// Preise in US-Dollar je 1 Mio. Token (Claude Opus 5.5)
-const PRICE = { input: 4, output: 20, cacheRead: 0.2, cacheWrite: 5 };
+// Rezepte schreiben ist einfacher als Fotos erkennen – darum Sonnet 5.5 (günstiger); Fotos bleiben bei Opus 5.5.
+const MODEL = "claude-sonnet-5-5";
+// Preise in US-Dollar je 1 Mio. Token (Claude Sonnet 5.5); Cache-Schreiben = 1,25 × Eingabe.
+const PRICE = { input: 2, output: 10, cacheRead: 0.1, cacheWrite: 2.5 };
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
