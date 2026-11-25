@@ -452,6 +452,9 @@ function renderAll() {
   renderFoodList(document.getElementById("search").value);
   renderBackupInfo();
   renderDishList();
+  renderSavedRecipes();
+  const pantryField = document.getElementById("pantryIn");
+  if (pantryField && document.activeElement !== pantryField) pantryField.value = readJson(PANTRY_KEY, "") || "";
 }
 
 async function refreshDay() {
@@ -1679,6 +1682,41 @@ function cookContext() {
   };
 }
 
+// Gespeicherte KI-Rezepte: {rezepte: [{id, datum, titel, warum, zeit_minuten, portionen, zutaten, schritte}], geloescht: {id: Zeitpunkt}}
+// Der Schlüssel beginnt mit „mein-tag“ und wird darum gesichert und zwischen den Geräten abgeglichen.
+const RECIPE_STORE_KEY = "mein-tag-ki-rezepte";
+const RECIPE_STORE_MAX = 40;
+const cookById = new Map(); // id → aufbereitetes Rezept (für die Knöpfe)
+
+function readRecipeStore() {
+  const store = readJson(RECIPE_STORE_KEY, null);
+  return {
+    rezepte: store && Array.isArray(store.rezepte) ? store.rezepte : [],
+    geloescht: store && store.geloescht && typeof store.geloescht === "object" ? store.geloescht : {}
+  };
+}
+
+function writeRecipeStore(store) {
+  writeStoredValue(RECIPE_STORE_KEY, JSON.stringify({rezepte: store.rezepte.slice(0, RECIPE_STORE_MAX), geloescht: store.geloescht}));
+}
+
+// Macht aus einem gespeicherten KI-Rezept eines mit Lebensmitteln und berechneten Werten.
+function prepareCookRecipe(raw) {
+  const items = (raw.zutaten || []).map(z => {
+    const food = foodByName(z.name) || makeCustomFood({
+      n: String(z.name || "Zutat"), group: inferGroup(z.name), k100: num(z.kcal_pro_100g), p100: num(z.protein_pro_100g),
+      co2: estimateCO2PerKg(z.name), co2est: true, g: 100, src: "eigen"
+    });
+    return {food, grams: Math.max(1, Math.round(num(z.gramm) || 100)), anzeige: String(z.anzeige || ""), vorhanden: z.vorhanden !== false, neu: !foodByName(z.name)};
+  });
+  const portionen = Math.max(1, Math.round(num(raw.portionen) || 2));
+  const titel = String(raw.titel || "Rezept");
+  const recipe = {id: raw.id, datum: raw.datum, titel, warum: String(raw.warum || ""), zeit: Math.round(num(raw.zeit_minuten)),
+                  portionen, items, schritte: (raw.schritte || []).map(String), dish: buildDish(titel, items, portionen)};
+  cookById.set(recipe.id, recipe);
+  return recipe;
+}
+
 async function suggestRecipes() {
   const box = document.getElementById("cookResults");
   const pantryText = document.getElementById("pantryIn").value.trim();
@@ -1701,19 +1739,20 @@ async function suggestRecipes() {
       try { const detail = await error.context.json(); if (detail && detail.fehler) message = detail.fehler; } catch (e) { /* Standardtext */ }
       throw new Error(message);
     }
-    cookRecipes = (data.rezepte || []).map(r => {
-      const items = (r.zutaten || []).map(z => {
-        const food = foodByName(z.name) || makeCustomFood({
-          n: String(z.name || "Zutat"), group: inferGroup(z.name), k100: num(z.kcal_pro_100g), p100: num(z.protein_pro_100g),
-          co2: estimateCO2PerKg(z.name), co2est: true, g: 100, src: "eigen"
-        });
-        return {food, grams: Math.max(1, Math.round(num(z.gramm) || 100)), anzeige: String(z.anzeige || ""), vorhanden: z.vorhanden !== false, neu: !foodByName(z.name)};
-      });
-      const portionen = Math.max(1, Math.round(num(r.portionen) || 2));
-      return {titel: String(r.titel || "Rezept"), warum: String(r.warum || ""), zeit: Math.round(num(r.zeit_minuten)), portionen,
-              items, schritte: (r.schritte || []).map(String), dish: buildDish(String(r.titel || "Rezept"), items, portionen)};
-    });
+    // Neue Vorschläge sofort speichern – so sind sie auch auf dem anderen Gerät da.
+    const now = new Date().toISOString();
+    const fresh = (data.rezepte || []).map(r => ({
+      id: newEntryId(), datum: now, titel: r.titel, warum: r.warum, zeit_minuten: r.zeit_minuten,
+      portionen: r.portionen, zutaten: r.zutaten || [], schritte: r.schritte || []
+    }));
+    if (fresh.length) {
+      const store = readRecipeStore();
+      store.rezepte = [...fresh, ...store.rezepte];
+      writeRecipeStore(store);
+    }
+    cookRecipes = fresh.map(prepareCookRecipe);
     renderCookRecipes(data);
+    renderSavedRecipes();
   } catch (err) {
     box.innerHTML = `<div class="cook-error">${escapeHtml(err.message || String(err))}</div>`;
   } finally {
@@ -1722,18 +1761,11 @@ async function suggestRecipes() {
   }
 }
 
-function renderCookRecipes(data) {
-  const box = document.getElementById("cookResults");
-  if (!cookRecipes.length) {
-    box.innerHTML = '<div class="cook-error">Dazu ist der KI nichts eingefallen. Ergänze deinen Vorrat oder versuche einen anderen Wunsch.</div>';
-    return;
-  }
-  const cost = num(data.kosten_usd);
-  box.innerHTML = cookRecipes.map((r, i) => {
-    const d = r.dish;
-    const conflicts = foodConflicts(d);
-    const missing = r.items.filter(item => !item.vorhanden);
-    return `
+function cookCardHtml(r, withDelete) {
+  const d = r.dish;
+  const conflicts = foodConflicts(d);
+  const missing = r.items.filter(item => !item.vorhanden);
+  return `
     <div class="cook-card">
       <h3>${escapeHtml(r.titel)}</h3>
       <div class="cook-meta">${r.zeit ? `ca. ${r.zeit} Min. · ` : ""}${r.portionen} ${r.portionen === 1 ? "Portion" : "Portionen"}${missing.length ? ` · ${missing.length} Zutat${missing.length === 1 ? "" : "en"} einkaufen` : " · alles im Vorrat"}</div>
@@ -1745,24 +1777,62 @@ function renderCookRecipes(data) {
       <div class="cook-values">1 Portion (${d.g} g): ${Math.round(d.k100 * d.g / 100)} kcal · ${(d.p100 * d.g / 100).toFixed(0)} g Protein · ${d.co2est ? "≈ " : ""}${Math.round(d.co2 * d.g)} g CO₂</div>
       ${conflicts.length ? `<div class="cook-warn">Achtung: ${escapeHtml(conflictText(conflicts))} – bitte prüfen.</div>` : ""}
       <div class="backup-row">
-        <button type="button" class="btn" data-cook-add="${i}">1 Portion eintragen</button>
-        <button type="button" class="btn ghost" data-cook-adopt="${i}">Als mein Gericht übernehmen</button>
+        <button type="button" class="btn" data-cook-add="${escapeHtml(r.id)}">1 Portion eintragen</button>
+        <button type="button" class="btn ghost" data-cook-adopt="${escapeHtml(r.id)}">Als mein Gericht übernehmen</button>
+        ${withDelete ? `<button type="button" class="btn ghost" data-cook-delete="${escapeHtml(r.id)}">Löschen</button>` : ""}
       </div>
     </div>`;
-  }).join("") +
-  `<div class="pr-meta">${escapeHtml(data.hinweis || "")}${cost ? ` Dieser Vorschlag kostete etwa ${(cost * 100).toFixed(1).replace(".", ",")} US-Cent.` : ""} Werte sind aus den Zutaten berechnet; bei Zutaten außerhalb deiner Liste hat die KI geschätzt.</div>`;
 }
 
-async function addCookPortion(index) {
-  const r = cookRecipes[index];
+function renderCookRecipes(data) {
+  const box = document.getElementById("cookResults");
+  if (!cookRecipes.length) {
+    box.innerHTML = '<div class="cook-error">Dazu ist der KI nichts eingefallen. Ergänze deinen Vorrat oder versuche einen anderen Wunsch.</div>';
+    return;
+  }
+  const cost = num(data.kosten_usd);
+  box.innerHTML = cookRecipes.map(r => cookCardHtml(r, false)).join("") +
+  `<div class="pr-meta">${escapeHtml(data.hinweis || "")}${cost ? ` Dieser Vorschlag kostete etwa ${(cost * 100).toFixed(1).replace(".", ",")} US-Cent.` : ""} Werte sind aus den Zutaten berechnet; bei Zutaten außerhalb deiner Liste hat die KI geschätzt. Die Rezepte sind unten unter „Meine Rezeptvorschläge“ gespeichert – auch auf deinen anderen Geräten.</div>`;
+}
+
+// Liste aller gespeicherten Vorschläge (neueste zuerst), jeweils zum Aufklappen.
+function renderSavedRecipes() {
+  const box = document.getElementById("cookSaved");
+  if (!box) return;
+  const store = readRecipeStore();
+  const list = store.rezepte.filter(r => r && r.id && !store.geloescht[r.id]);
+  document.getElementById("cookSavedTitle").style.display = list.length ? "" : "none";
+  box.innerHTML = list.map(raw => {
+    const r = prepareCookRecipe(raw);
+    const when = raw.datum ? new Date(raw.datum).toLocaleDateString("de-DE", {day: "numeric", month: "numeric"}) : "";
+    return `
+    <details class="saved-recipe">
+      <summary><span>${escapeHtml(r.titel)}</span><span class="saved-meta">${escapeHtml(when)}${r.zeit ? ` · ${r.zeit} Min.` : ""}</span></summary>
+      ${cookCardHtml(r, true)}
+    </details>`;
+  }).join("");
+}
+
+async function addCookPortion(id) {
+  const r = cookById.get(id);
   if (!r) return;
   await addEntry({...scaleFood(r.dish, r.dish.g), src: "rezept-ki"});
 }
 
+function deleteSavedRecipe(id) {
+  const r = cookById.get(id);
+  if (!confirm(`„${r ? r.titel : "Rezept"}“ aus deinen Rezeptvorschlägen löschen? Das gilt auch für deine anderen Geräte.`)) return;
+  const store = readRecipeStore();
+  store.rezepte = store.rezepte.filter(x => x.id !== id);
+  store.geloescht[id] = Date.now(); // damit es beim Abgleich nicht zurückkommt
+  writeRecipeStore(store);
+  renderSavedRecipes();
+}
+
 // Lädt den KI-Vorschlag in „Gericht“; dort lässt er sich anpassen und speichern.
 // Zutaten, die nicht in der Liste stehen, werden als eigene Lebensmittel gemerkt.
-function adoptCookRecipe(index) {
-  const r = cookRecipes[index];
+function adoptCookRecipe(id) {
+  const r = cookById.get(id);
   if (!r) return;
   r.items.filter(item => item.neu).forEach(item => rememberFood(item.food));
   dishItems = r.items.map(item => ({food: foodByName(item.food.n) || item.food, grams: item.grams}));
@@ -2382,12 +2452,16 @@ function setupListeners() {
   pantry.value = readJson(PANTRY_KEY, "") || "";
   pantry.addEventListener("change", () => writeStoredValue(PANTRY_KEY, JSON.stringify(pantry.value.trim())));
   document.getElementById("cookGo").addEventListener("click", suggestRecipes);
-  document.getElementById("cookResults").addEventListener("click", async e => {
+  const cookClick = async e => {
     const add = e.target.closest("[data-cook-add]");
     const adopt = e.target.closest("[data-cook-adopt]");
-    if (add) await addCookPortion(parseInt(add.dataset.cookAdd));
-    if (adopt) adoptCookRecipe(parseInt(adopt.dataset.cookAdopt));
-  });
+    const del = e.target.closest("[data-cook-delete]");
+    if (add) await addCookPortion(add.dataset.cookAdd);
+    if (adopt) adoptCookRecipe(adopt.dataset.cookAdopt);
+    if (del) deleteSavedRecipe(del.dataset.cookDelete);
+  };
+  document.getElementById("cookResults").addEventListener("click", cookClick);
+  document.getElementById("cookSaved").addEventListener("click", cookClick);
   updateCookHint();
 
   // Rezept als eigenes Gericht übernehmen (Knopf steht in mehreren Bereichen)

@@ -56,6 +56,19 @@ function mergeDayLists(storageKey, local, remote, tombs) {
   return result.map(x => x.e);
 }
 
+// Gespeicherte KI-Rezepte: Vereinigung über die Kennung, Gelöschtes bleibt gelöscht, neueste zuerst.
+function mergeRecipeStore(local, remote) {
+  const a = local && typeof local === "object" ? local : {};
+  const b = remote && typeof remote === "object" ? remote : {};
+  const geloescht = {...(b.geloescht || {}), ...(a.geloescht || {})};
+  const seen = new Map();
+  [...(a.rezepte || []), ...(b.rezepte || [])].forEach(r => {
+    if (r && r.id && !geloescht[r.id] && !seen.has(r.id)) seen.set(r.id, r);
+  });
+  const rezepte = [...seen.values()].sort((x, y) => String(y.datum || "").localeCompare(String(x.datum || ""))).slice(0, 40);
+  return {rezepte, geloescht};
+}
+
 function stripPrivate(key, value) {
   if (key === PROFILE_KEY && value && typeof value === "object") {
     const copy = {...value};
@@ -193,6 +206,8 @@ const PlanetSync = {
 
       if (row.key === TOMBSTONE_KEY) {
         next = {...(row.value || {}), ...(local || {})};
+      } else if (row.key === RECIPE_STORE_KEY) {
+        next = mergeRecipeStore(local, row.value); // KI-Rezepte beider Geräte vereinigen
       } else if (row.key.startsWith(KEY_PREFIX)) {
         next = mergeDayLists(row.key, local, row.value, readTombstones());
       } else if (!firstSync && dirty[row.key]) {

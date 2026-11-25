@@ -308,6 +308,16 @@
   .cook-card .cook-values { font-size: 12px; color: var(--leaf); }
   .cook-card .cook-warn { color: var(--rose); }
   .cook-error { color: var(--rose); font-size: 13px; }
+  .cook-saved-title { margin-top: 20px; }
+  .cook-saved { display: flex; flex-direction: column; gap: 8px; }
+  .saved-recipe { background: var(--bg); border: 1px solid var(--line-soft); border-radius: 12px; }
+  .saved-recipe summary { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 12px 14px; cursor: pointer; list-style: none; font-size: 14px; color: var(--ink); font-weight: 500; }
+  .saved-recipe summary::-webkit-details-marker { display: none; }
+  .saved-recipe summary::before { content: '▸'; color: var(--leaf); margin-right: 4px; }
+  .saved-recipe[open] summary::before { content: '▾'; }
+  .saved-recipe summary span:first-child { flex: 1; }
+  .saved-recipe .saved-meta { font-size: 11px; color: var(--ink-faint); font-weight: 400; white-space: nowrap; }
+  .saved-recipe .cook-card { border: none; border-top: 1px solid var(--line-soft); border-radius: 0 0 12px 12px; }
   /* Menü */
   .quickbar { position: sticky; }
   .quickbar .qb-menu { flex: 1.3; font-weight: 600; color: var(--ink); }
@@ -542,6 +552,8 @@
       <div class="hint" id="cookHint"></div>
     </div>
     <div class="cook-results" id="cookResults"></div>
+    <div class="field-title cook-saved-title" id="cookSavedTitle" style="display:none;">Meine Rezeptvorschläge – auf allen Geräten</div>
+    <div class="cook-saved" id="cookSaved"></div>
   </div>
 
   <div class="section" id="discoverSection" data-bereich="entdecken">
@@ -684,7 +696,7 @@
 
 <script src="./foods.js?v=9"></script>
 <script src="./recipes.js?v=9"></script>
-<script src="./app.js?v=21"></script>
-<script src="./sync.js?v=8"></script>
+<script src="./app.js?v=22"></script>
+<script src="./sync.js?v=9"></script>
 </body>
 </html>

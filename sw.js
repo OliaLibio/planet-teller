@@ -2,14 +2,14 @@
 // Online wird immer zuerst die aktuelle Datei geholt (Änderungen sind sofort sichtbar);
 // nur ohne Netz kommt die zuletzt gespeicherte Fassung aus dem Cache.
 // Bei Änderungen an den App-Dateien: CACHE_NAME und das "?v=" in index.html gemeinsam erhöhen.
-const CACHE_NAME = "planet-teller-v27";
+const CACHE_NAME = "planet-teller-v28";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./foods.js?v=9",
   "./recipes.js?v=9",
-  "./app.js?v=21",
-  "./sync.js?v=8",
+  "./app.js?v=22",
+  "./sync.js?v=9",
   "./manifest.webmanifest",
   "./icon.svg",
   "./icon-180.png",
