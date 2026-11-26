@@ -321,6 +321,10 @@ const FOOD_ROWS = [
   ["Zimtschnecke / süßes Teilchen", "suess", 360, 6.5, 3, "1 Stück=100", "GME", "gebaeck plunder"],
   // Bäckerei-Gebäck: Werte je 100 g, Stückgewichte typische Bäckerware (geschätzt)
   ["Nussecke", "suess", 480, 8, 3.5, "1 Stück=100;½ Stück=50", "GMEN", "nussecken haselnuss gebaeck baeckerei schokolade"],
+  ["Pistaziencroissant", "suess", 450, 8, 3.8, "1 Stück=100;½ Stück=50", "GMEN", "pistazien pistazie croissant pistaziencreme gefuellt gebaeck baeckerei"],
+  ["Schokocroissant", "suess", 420, 7.5, 4.5, "1 Stück=70", "GME", "pain au chocolat schokolade croissant gebaeck baeckerei"],
+  ["Mandelcroissant", "suess", 450, 9, 3.5, "1 Stück=90", "GMEN", "mandel croissant gebaeck baeckerei"],
+  ["Nougatcroissant", "suess", 440, 7, 4.5, "1 Stück=90", "GMEN", "nougat nuss nougat croissant gebaeck baeckerei"],
   ["Nussschnecke", "suess", 400, 7, 3, "1 Stück=110;½ Stück=55", "GMEN", "nussschnecken nusschnecke nusszopf haselnuss plunder hefeteig gebaeck baeckerei"],
   ["Mohnschnecke", "suess", 380, 7, 2.8, "1 Stück=110", "GME", "mohn plunder hefeteig gebaeck baeckerei"],
   ["Puddingschnecke", "suess", 340, 6, 2.8, "1 Stück=120", "GME", "puddingbrezel vanille plunder gebaeck baeckerei"],
