@@ -1068,6 +1068,16 @@ function defaultFoodStatus() {
   return `${total} Lebensmittel und Gerichte sind sofort verfügbar. Ab 3 Buchstaben suche ich zusätzlich online bei Open Food Facts.`;
 }
 
+// Suchfeld, Auswahl und Online-Treffer zurücksetzen.
+function clearFoodSearch() {
+  const search = document.getElementById("search");
+  search.value = "";
+  document.getElementById("searchClear").style.display = "none";
+  selectedFood = null;
+  document.getElementById("portionPanel").classList.remove("active");
+  handleFoodSearch("");
+}
+
 function handleFoodSearch(value) {
   const query = value.trim();
   foodSearchRun += 1;
@@ -2179,6 +2189,7 @@ function openFoodInList(food) {
   renderCategoryChips();
   showTab("search");
   document.getElementById("search").value = food.n;
+  document.getElementById("searchClear").style.display = "";
   onlineFoods = [];
   renderFoodList(food.n);
   selectFood(food);
@@ -2309,7 +2320,14 @@ async function applyImport(replace) {
 
 // ---------- Bedienung ----------
 function setupListeners() {
-  document.getElementById("search").addEventListener("input", e => handleFoodSearch(e.target.value));
+  document.getElementById("search").addEventListener("input", e => {
+    handleFoodSearch(e.target.value);
+    document.getElementById("searchClear").style.display = e.target.value ? "" : "none";
+  });
+  document.getElementById("searchClear").addEventListener("click", () => {
+    clearFoodSearch();
+    document.getElementById("search").focus(); // gleich das Nächste tippen
+  });
   document.getElementById("runAnalysis").addEventListener("click", renderLongTermAnalysis);
 
   document.getElementById("catChips").addEventListener("click", e => {
@@ -2349,6 +2367,7 @@ function setupListeners() {
       renderCategoryChips();
     }
     await addEntry(scaleFood(selectedFood, grams));
+    clearFoodSearch(); // Suchfeld leeren – bereit für das nächste Lebensmittel
   });
   document.getElementById("forgetFood").addEventListener("click", () => {
     if (!selectedFood || !selectedFood.saved) return;

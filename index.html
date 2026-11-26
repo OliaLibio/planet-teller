@@ -332,6 +332,10 @@
   .menu-panel strong { display: block; font-size: 14px; color: var(--ink); font-weight: 600; }
   .menu-panel small { display: block; font-size: 12px; color: var(--ink-faint); margin-top: 1px; }
   .view-title { display: none; }
+  .search-row { position: relative; }
+  .search-row input[type="text"] { padding-right: 46px; }
+  .search-clear { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 36px; height: 36px; border: none; border-radius: 50%; background: var(--line-soft); color: var(--ink-soft); font-size: 20px; line-height: 1; cursor: pointer; }
+  .search-clear:hover { background: var(--line); color: var(--ink); }
   .notice { margin-bottom: 18px; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(199,95,104,0.35); background: var(--bg-card); font-size: 12px; color: var(--rose); line-height: 1.45; }
 
   @media (max-width: 480px) {
@@ -444,7 +448,8 @@
 
     <div id="tabSearch">
       <div class="search-row">
-        <input type="text" id="search" placeholder="Suche: Apfel, Linsensuppe, Cappuccino Hafermilch …">
+        <input type="text" id="search" placeholder="Suche: Apfel, Linsensuppe, Cappuccino Hafermilch …" autocomplete="off">
+        <button type="button" class="search-clear" id="searchClear" title="Suche leeren" aria-label="Suche leeren" style="display:none;">×</button>
       </div>
       <div class="chip-row scroll" id="catChips"></div>
       <div class="portion-panel" id="portionPanel">
@@ -696,7 +701,7 @@
 
 <script src="./foods.js?v=10"></script>
 <script src="./recipes.js?v=9"></script>
-<script src="./app.js?v=22"></script>
+<script src="./app.js?v=23"></script>
 <script src="./sync.js?v=9"></script>
 </body>
 </html>
