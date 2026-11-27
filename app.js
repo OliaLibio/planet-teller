@@ -2010,16 +2010,33 @@ function updatePhotoTotals() {
 async function addPhotoSuggestions() {
   const chosen = photoSuggestions.filter(item => item.on && item.grams > 0);
   if (!chosen.length) return;
+  const learned = [];
   chosen.forEach(item => {
-    const entry = item.food
-      ? scaleFood(item.food, item.grams)
-      : {n: item.name, u: `${Math.round(item.grams)} g`, ...photoItemValues(item),
-         group: inferGroup(item.name), grams: item.grams, est: 1};
+    let food = item.food;
+    if (!food) {
+      // Nicht in der Liste: mit den KI-Werten als eigenes Lebensmittel merken –
+      // so lässt es sich später ohne neues Foto wieder eintragen (unter „Aus Liste“ und „Meine“).
+      food = foodByName(item.name);
+      if (!food) {
+        rememberFood(makeCustomFood({
+          n: item.name, group: inferGroup(item.name), k100: item.k100, p100: item.p100,
+          co2: item.co2, co2est: true, g: Math.round(item.grams), src: "eigen"
+        }));
+        food = foodByName(item.name);
+        learned.push(item.name);
+      }
+    }
+    const entry = scaleFood(food, item.grams);
     entries.push({...entry, n: `${entry.n} (Foto bestätigt)`, src: "foto"});
   });
   await saveDay(currentDate, entries);
+  if (learned.length) {
+    renderCategoryChips();
+    renderFoodList(document.getElementById("search").value);
+  }
   render();
-  showToast(`✓ ${chosen.length} ${chosen.length === 1 ? "Lebensmittel" : "Lebensmittel"} vom Foto eingetragen`);
+  showToast(`✓ ${chosen.length} Lebensmittel vom Foto eingetragen` +
+    (learned.length ? ` · neu gemerkt: ${learned.join(", ")}` : ""));
   resetPhoto();
 }
 

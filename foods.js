@@ -310,6 +310,15 @@ const FOOD_ROWS = [
   // ---------------- Süßes & Snacks ----------------
   ["Dunkle Schokolade", "suess", 550, 10, 46.65, "20;1 Riegel=40", "", "zartbitter bitterschokolade", "schoko"],
   ["Honig", "suess", 300, 0, 2.5, "1 TL=10", "H", ""],
+  ["Pralinen (gemischt)", "suess", 520, 6, 15, "1 Stück=12;3 Stück=36", "MN", "praline pralinen konfekt schokopraline schokopralinen trueffel schokolade", "schoko"],
+  ["Marzipan", "suess", 450, 8, 2.5, "20", "N", "marzipankartoffel marzipanbrot mandel"],
+  // Weihnachtsgebäck (Werte geschätzt)
+  ["Lebkuchen (Elisen)", "suess", 400, 6, 3, "1 Stück=40", "GEN", "lebkuchen elisenlebkuchen pfefferkuchen weihnachten gebaeck"],
+  ["Spekulatius", "suess", 480, 6, 2.5, "1 Stück=10;5 Stück=50", "GM", "spekulatius kekse weihnachten gebaeck"],
+  ["Christstollen", "suess", 400, 6, 3, "1 Scheibe=50", "GMEN", "stollen christstollen dresdner weihnachten kuchen"],
+  ["Dominostein", "suess", 400, 5, 8, "1 Stück=10", "GN", "dominosteine weihnachten schokolade lebkuchen marzipan"],
+  ["Zimtstern", "suess", 450, 8, 2.5, "1 Stück=10", "EN", "zimtsterne weihnachten plaetzchen kekse"],
+  ["Vanillekipferl", "suess", 520, 6, 4, "1 Stück=8", "GMN", "vanillekipferl weihnachten plaetzchen kekse"],
   ["Milchschokolade", "suess", 535, 7, 20, "20;1 Riegel=40", "M", "schokolade vollmilch", "schoko"],
   ["Schokoriegel", "suess", 480, 5, 12, "1 Stück=45", "M", "riegel snack", "schoko"],
   ["Kekse", "suess", 440, 7, 3, "30", "GM", "butterkekse plaetzchen gebaeck"],
@@ -356,6 +365,7 @@ const FOOD_ROWS = [
   ["Cappuccino mit Hafermilch", "getraenk", 35, 1, 0.8, "1 Tasse=200", "G", "kaffee haferdrink vegan"],
   ["Latte Macchiato mit Hafermilch", "getraenk", 38, 1.2, 0.8, "1 Glas=250", "G", "kaffee haferdrink milchkaffee vegan"],
   ["Hafermilch", "getraenk", 45, 1, 0.8, "1 Glas=200", "G", "haferdrink pflanzendrink pflanzenmilch vegan"],
+  ["Glühwein", "getraenk", 100, 0, 1.6, "1 Becher=200", "", "gluehwein weihnachtsmarkt wein punsch"],
   ["Rotwein", "getraenk", 83.3, 0, 1.5, "1 Glas=150", "", "wein"],
   ["Bier", "getraenk", 43.3, 0.33, 1.5, "1 Glas=300;1 Flasche=500", "G", "pils helles weizen"],
   ["Latte Macchiato mit Kuhmilch", "getraenk", 50, 2.9, 2.55, "1 Glas=250", "M", "kaffee milchkaffee flat white", "kaffeemilch"],
